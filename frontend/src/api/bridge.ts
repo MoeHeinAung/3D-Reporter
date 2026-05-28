@@ -15,7 +15,9 @@ import type {
   BlacklistTicketResult,
   WinningTicketResult,
   DeleteResult,
+  PartnerResult,
 } from '../types'
+import type { Agent, MasterDealer } from '../types'
 
 // ---------------------------------------------------------------------------
 // pywebview JS API type
@@ -46,6 +48,14 @@ interface PywebviewAPI {
   echo(message: string): Promise<string>
   ping(): Promise<string>
   api_mode(): Promise<string>
+  get_all_agents(): Promise<Agent[] | ApiError>
+  create_agent(id: string, name: string, commission?: number, jp_factor?: number, sp_factor?: number, note?: string): Promise<PartnerResult | ApiError>
+  update_agent(agent_id: string, name?: string, commission?: number, jp_factor?: number, sp_factor?: number, note?: string): Promise<PartnerResult | ApiError>
+  delete_agent(agent_id: string): Promise<DeleteResult | ApiError>
+  get_all_master_dealers(): Promise<MasterDealer[] | ApiError>
+  create_master_dealer(id: string, name: string, commission?: number, jp_factor?: number, sp_factor?: number, note?: string): Promise<PartnerResult | ApiError>
+  update_master_dealer(dealer_id: string, name?: string, commission?: number, jp_factor?: number, sp_factor?: number, note?: string): Promise<PartnerResult | ApiError>
+  delete_master_dealer(dealer_id: string): Promise<DeleteResult | ApiError>
 }
 
 // ---------------------------------------------------------------------------
@@ -59,6 +69,8 @@ interface MockState {
   _nextWinningId: number
   _mockBlacklist: Array<{ id: number; drawId: number; ticket: string; type: string }>
   _mockWinnings: Array<{ id: number; drawId: number; ticket: string; type: string }>
+  _mockAgents: Agent[]
+  _mockMasterDealers: MasterDealer[]
 }
 
 // ---------------------------------------------------------------------------
@@ -159,6 +171,10 @@ function getAPI(): PywebviewAPI {
     _mockBlacklist: [] as Array<{ id: number; drawId: number; ticket: string; type: string }>,
     _mockWinnings: [] as Array<{ id: number; drawId: number; ticket: string; type: string }>,
 
+    // -- Agent & Master Dealer --
+    _mockAgents: [] as Agent[],
+    _mockMasterDealers: [] as MasterDealer[],
+
     async get_all_draws(this: MockState) {
       return [...this._mockDraws].reverse()
     },
@@ -207,6 +223,62 @@ function getAPI(): PywebviewAPI {
       const idx = this._mockWinnings.findIndex((t) => t.id === ticket_id)
       if (idx === -1) return { error: `Winning ticket ${ticket_id} not found.` }
       this._mockWinnings.splice(idx, 1)
+      return { ok: true }
+    },
+
+    // -- Agents --
+    async get_all_agents(this: MockState) {
+      return [...this._mockAgents]
+    },
+    async create_agent(this: MockState, id: string, name: string, commission?: number, jp_factor?: number, sp_factor?: number, note?: string) {
+      const exists = this._mockAgents.find((a) => a.id === id)
+      if (exists) return { error: `Agent ${id} already exists.` }
+      const entry: Agent = { id, name, commission: commission ?? 0, jpFactor: jp_factor ?? 0, spFactor: sp_factor ?? 0, note: note ?? null }
+      this._mockAgents.push(entry)
+      return { id: entry.id, name: entry.name }
+    },
+    async update_agent(this: MockState, agent_id: string, name?: string, commission?: number, jp_factor?: number, sp_factor?: number, note?: string) {
+      const a = this._mockAgents.find((x) => x.id === agent_id)
+      if (!a) return { error: `Agent ${agent_id} not found.` }
+      if (name !== undefined) a.name = name
+      if (commission !== undefined && commission !== null) a.commission = commission
+      if (jp_factor !== undefined && jp_factor !== null) a.jpFactor = jp_factor
+      if (sp_factor !== undefined && sp_factor !== null) a.spFactor = sp_factor
+      if (note !== undefined) a.note = note
+      return { id: a.id, name: a.name }
+    },
+    async delete_agent(this: MockState, agent_id: string) {
+      const idx = this._mockAgents.findIndex((a) => a.id === agent_id)
+      if (idx === -1) return { error: `Agent ${agent_id} not found.` }
+      this._mockAgents.splice(idx, 1)
+      return { ok: true }
+    },
+
+    // -- Master Dealers --
+    async get_all_master_dealers(this: MockState) {
+      return [...this._mockMasterDealers]
+    },
+    async create_master_dealer(this: MockState, id: string, name: string, commission?: number, jp_factor?: number, sp_factor?: number, note?: string) {
+      const exists = this._mockMasterDealers.find((d) => d.id === id)
+      if (exists) return { error: `Master Dealer ${id} already exists.` }
+      const entry: MasterDealer = { id, name, commission: commission ?? 0, jpFactor: jp_factor ?? 0, spFactor: sp_factor ?? 0, note: note ?? null }
+      this._mockMasterDealers.push(entry)
+      return { id: entry.id, name: entry.name }
+    },
+    async update_master_dealer(this: MockState, dealer_id: string, name?: string, commission?: number, jp_factor?: number, sp_factor?: number, note?: string) {
+      const d = this._mockMasterDealers.find((x) => x.id === dealer_id)
+      if (!d) return { error: `Master Dealer ${dealer_id} not found.` }
+      if (name !== undefined) d.name = name
+      if (commission !== undefined && commission !== null) d.commission = commission
+      if (jp_factor !== undefined && jp_factor !== null) d.jpFactor = jp_factor
+      if (sp_factor !== undefined && sp_factor !== null) d.spFactor = sp_factor
+      if (note !== undefined) d.note = note
+      return { id: d.id, name: d.name }
+    },
+    async delete_master_dealer(this: MockState, dealer_id: string) {
+      const idx = this._mockMasterDealers.findIndex((d) => d.id === dealer_id)
+      if (idx === -1) return { error: `Master Dealer ${dealer_id} not found.` }
+      this._mockMasterDealers.splice(idx, 1)
       return { ok: true }
     },
 

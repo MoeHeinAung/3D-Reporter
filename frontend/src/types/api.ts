@@ -67,6 +67,11 @@ export interface DeleteResult {
   ok: boolean
 }
 
+export interface PartnerResult {
+  id: string
+  name: string
+}
+
 /** Type guard: true if the result is an ApiError. */
 export function isApiError(result: unknown): result is ApiError {
   return typeof result === 'object' && result !== null && 'error' in result

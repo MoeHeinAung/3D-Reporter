@@ -115,3 +115,15 @@ This document records feature implementations and significant structural changes
   - **`App.tsx`:** Added `apiMode` state, calls `api.api_mode()` on mount, renders `.mock-banner` when mode is `'mock'`.
   - **`api.py`:** Added `api_mode()` returning `'pywebview'`. Added `IntegrityError` catch in `_with_session()` returning "A record with that data already exists."
 - **Files:** `frontend/src/api/bridge.ts`, `frontend/src/App.tsx`, `frontend/src/styles/components/_navbar.scss`, `backend/api.py`
+
+### IMPL-010: Partners Page — Agent & Master Dealer Management
+
+- **Rationale:** The Partners page was a placeholder ("coming soon"). It needed full CRUD tables for agents and master dealers — the two entity types managing lottery ticket sales and payouts. The implementation reuses the tabbed table pattern, modal forms, icon buttons, and state handling established on the Draws page.
+- **Changes:**
+  - **`pages/Partners.tsx`:** Complete rewrite — single card at grid position Column 4/13, Row 1/8 with a tabbed interface toggling between "Agent Table" and "Master Dealer Table." Each tab shows a scrollable table with columns: ID, Name, Commission, JP Factor, SP Factor, Note, and icon action buttons (Edit, Delete). Header contains tabs + "Insert Agent"/"Insert Master Dealer" button that opens a modal form. Form fields: ID (disabled on edit, natural key varchar), Name, Commission, JP Factor, SP Factor, Note. Reuses inline SVG icon components (`EditIcon`, `DeleteIcon`, `CloseIcon`) and all SCSS classes from `_draws.scss` (`.draws__tabs`, `.draws__tab`, `.draws__ticket-table`, `.draws__ticket-table-wrapper`, `.draws__state`, `.draws__spinner`, `.icon-btn`, `.modal-*`).
+  - **`services/agent_service.py` (new):** Thin CRUD service wrapping `AgentRepository` with `get_all`, `get_by_id`, `create`, `update`, `delete`.
+  - **`services/master_dealer_service.py` (new):** Thin CRUD service wrapping `MasterDealerRepository` with `get_all`, `get_by_id`, `create`, `update`, `delete`.
+  - **`api.py`:** Added 8 new endpoints: `get_all_agents`, `create_agent`, `update_agent`, `delete_agent`, `get_all_master_dealers`, `create_master_dealer`, `update_master_dealer`, `delete_master_dealer`.
+  - **`api/bridge.ts`:** Added 8 new typed bridge methods (`get_all_agents`, `create_agent`, `update_agent`, `delete_agent`, `get_all_master_dealers`, `create_master_dealer`, `update_master_dealer`, `delete_master_dealer`) with mock implementations using `_mockAgents` and `_mockMasterDealers` arrays. Extended `MockState` interface and added `PartnerResult` type.
+  - **`types/api.ts`:** Added `PartnerResult` interface (`{ id: string, name: string }`).
+- **Files:** `frontend/src/pages/Partners.tsx` (rewrite), `backend/services/agent_service.py` (new), `backend/services/master_dealer_service.py` (new), `backend/api.py`, `frontend/src/api/bridge.ts`, `frontend/src/types/api.ts`

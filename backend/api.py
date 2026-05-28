@@ -19,8 +19,10 @@ from sqlalchemy.exc import IntegrityError
 
 from backend.database.connection import get_session
 from backend.errors import AppError
+from backend.services.agent_service import AgentService
 from backend.services.blacklist_service import BlacklistService
 from backend.services.draw_service import DrawService
+from backend.services.master_dealer_service import MasterDealerService
 from backend.services.risk_service import RiskService
 from backend.services.sales_service import SalesService
 from backend.services.system_service import SystemService
@@ -205,6 +207,76 @@ class API:
     def delete_winning_ticket(self, ticket_id: int) -> dict[str, Any]:
         def _do(s: Any) -> dict[str, Any]:
             WinningService(s).delete(ticket_id)
+            return {"ok": True}
+        return self._with_session(_do)
+
+    # ------------------------------------------------------------------
+    # Agents
+    # ------------------------------------------------------------------
+
+    def get_all_agents(self) -> list[dict[str, Any]]:
+        def _do(s: Any) -> list[dict[str, Any]]:
+            agents = AgentService(s).get_all()
+            return [
+                {
+                    "id": a.id, "name": a.name,
+                    "commission": a.commission, "jpFactor": a.jp_factor,
+                    "spFactor": a.sp_factor, "note": a.note,
+                }
+                for a in agents
+            ]
+        return self._with_session(_do)
+
+    def create_agent(self, id: str, name: str, commission: int = 0, jp_factor: int = 0, sp_factor: int = 0, note: str | None = None) -> dict[str, Any]:
+        def _do(s: Any) -> dict[str, Any]:
+            a = AgentService(s).create(id, name, commission, jp_factor, sp_factor, note)
+            return {"id": a.id, "name": a.name}
+        return self._with_session(_do)
+
+    def update_agent(self, agent_id: str, name: str | None = None, commission: int | None = None, jp_factor: int | None = None, sp_factor: int | None = None, note: str | None = None) -> dict[str, Any]:
+        def _do(s: Any) -> dict[str, Any]:
+            a = AgentService(s).update(agent_id, name, commission, jp_factor, sp_factor, note)
+            return {"id": a.id, "name": a.name}
+        return self._with_session(_do)
+
+    def delete_agent(self, agent_id: str) -> dict[str, Any]:
+        def _do(s: Any) -> dict[str, Any]:
+            AgentService(s).delete(agent_id)
+            return {"ok": True}
+        return self._with_session(_do)
+
+    # ------------------------------------------------------------------
+    # Master Dealers
+    # ------------------------------------------------------------------
+
+    def get_all_master_dealers(self) -> list[dict[str, Any]]:
+        def _do(s: Any) -> list[dict[str, Any]]:
+            dealers = MasterDealerService(s).get_all()
+            return [
+                {
+                    "id": d.id, "name": d.name,
+                    "commission": d.commission, "jpFactor": d.jp_factor,
+                    "spFactor": d.sp_factor, "note": d.note,
+                }
+                for d in dealers
+            ]
+        return self._with_session(_do)
+
+    def create_master_dealer(self, id: str, name: str, commission: int = 0, jp_factor: int = 0, sp_factor: int = 0, note: str | None = None) -> dict[str, Any]:
+        def _do(s: Any) -> dict[str, Any]:
+            d = MasterDealerService(s).create(id, name, commission, jp_factor, sp_factor, note)
+            return {"id": d.id, "name": d.name}
+        return self._with_session(_do)
+
+    def update_master_dealer(self, dealer_id: str, name: str | None = None, commission: int | None = None, jp_factor: int | None = None, sp_factor: int | None = None, note: str | None = None) -> dict[str, Any]:
+        def _do(s: Any) -> dict[str, Any]:
+            d = MasterDealerService(s).update(dealer_id, name, commission, jp_factor, sp_factor, note)
+            return {"id": d.id, "name": d.name}
+        return self._with_session(_do)
+
+    def delete_master_dealer(self, dealer_id: str) -> dict[str, Any]:
+        def _do(s: Any) -> dict[str, Any]:
+            MasterDealerService(s).delete(dealer_id)
             return {"ok": True}
         return self._with_session(_do)
 
