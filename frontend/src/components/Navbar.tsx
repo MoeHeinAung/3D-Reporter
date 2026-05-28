@@ -1,11 +1,6 @@
 import { NavLink } from 'react-router-dom'
-import { useTheme } from '../hooks/useTheme'
-import { useUptime } from '../hooks/useUptime'
 
 export default function Navbar() {
-  const { toggleTheme } = useTheme()
-  const { formatted: uptime } = useUptime()
-
   return (
     <nav className="navbar">
       {/* Left section: Draws | Partners | Report */}
@@ -30,7 +25,7 @@ export default function Navbar() {
         </NavLink>
       </div>
 
-      {/* Right section: Sales | Risk | Settings | clock | status | theme */}
+      {/* Right section: Sales | Risk | Settings */}
       <div className="navbar__right">
         <NavLink className={({ isActive }) => `navbar__link${isActive ? ' navbar__link--active' : ''}`} to="/sales">
           Sales
@@ -41,11 +36,6 @@ export default function Navbar() {
         <NavLink className={({ isActive }) => `navbar__link${isActive ? ' navbar__link--active' : ''}`} to="/settings">
           Settings
         </NavLink>
-        <span className="navbar__clock">{uptime}</span>
-        <span className="navbar__status" />
-        <button className="theme-toggle" onClick={toggleTheme} type="button">
-          <span className="theme-toggle__icon" />
-        </button>
       </div>
     </nav>
   )

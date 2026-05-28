@@ -85,3 +85,29 @@ This document captures business logic, domain rules, constraints, and core ideas
   - The constraint is enforced in `DrawService.open_draw()` via `DrawRepository.has_pending_closed()`, which checks for any row with `status = 'CLOSED'`. If any exist, a `ConflictError` is raised.
   - The mock backend in `bridge.ts` mirrors this constraint for consistent behavior during frontend development.
 - **Affects:** `backend/services/draw_service.py`, `backend/repositories/draw_repository.py`, `frontend/src/api/bridge.ts`.
+
+## 2026-05-28/29 — Multi-Line Ticket Parsing & Record Generation Rules
+
+- **Source:** Sales page implementation, `Docs/formatter.html` reference, user-directed parsing rule refinement.
+- **Logic:**
+  - **Input Format:** Each line of the sales textarea contains a 3-digit ticket followed by a separator and an amount. Format: `{ticket}{separator}{amount}` where ticket is exactly 3 digits (`000`–`999`) and separator is any non-digit character (space, `=`, `R`, `/`, `-`, etc.).
+  - **Ticket Validation:** The first 3 characters of each line are the ticket. They MUST be exactly 3 numeric digits (`/^\d{3}$/`). `"000"` is valid; `"A01"` is invalid. The 4th character MUST be a non-digit (separator required between ticket and amount); `"1234567"` is invalid ("Missing separator between ticket and amount").
+  - **Amount Parsing Rules** (applied per line, first match wins):
+    - **Rule 4 — Dual Amount:** Body matches `(\d+)[Rr\/\s\=\-\.\+\~]+(\d+)` → two numbers separated by a delimiter. Generates all unique permutations of the ticket digits. The **first permutation** gets amount1, all **remaining permutations** get amount2. E.g., `"123 = 2000/1000"` produces: `123=2000`, `132=1000`, `213=1000`, `231=1000`, `312=1000`, `321=1000`.
+    - **Rule 3 — R Indicator (Round):** Body contains `R`/`r`/`®` with a single number (and Rule 4 did not match). Generates all unique permutations of the ticket digits, **all sharing the same amount**. E.g., `"123 R 1000"` produces 6 records: `123=1000`, `132=1000`, `213=1000`, `231=1000`, `312=1000`, `321=1000`.
+    - **Rule 2 — Direct (Standard):** Body contains a single number. Creates exactly **one record** with the original ticket and the parsed amount. E.g., `"123 = 1000"` → `{ticket: "123", amount: 1000}`.
+  - **Permutation Generation:** For a 3-digit ticket, all unique permutations of the digit string are generated. Duplicate permutations caused by repeated digits are deduplicated via a `Set`: `"123"` → 6 unique perms; `"001"` → 3 unique perms (`001`, `010`, `100`); `"000"` → 1 perm.
+  - **Real-Time Validation Feedback:** The textarea uses a mirror technique — a backdrop `<div>` renders each line with conditional background coloring. Invalid lines (bad ticket format, missing separator, missing amount) receive a red-tinted background (`rgba(255, 0, 85, 0.15)`) immediately as the user types. A line-count indicator shows `"N records / M warn"`.
+  - **Sale Recording Workflow:** User enters lines → validates → clicks "Sale" → confirmation modal shows Draw ID, Agent Name, generated records list, and total amount → click "Confirm & Record" → batch is auto-created via `get_or_create_batch` (first sale for that draw+agent) → all records are inserted via `record_sale` with the shared note and batch ID.
+- **Affects:** `frontend/src/pages/Sales.tsx` (`parseSalesInput`, `generatePermutations`), `backend/services/sales_service.py`, `Docs/formatter.html`.
+
+## 2026-05-29 — Batch-Grouped Sales Table with Filtering & Sorting
+
+- **Source:** Sales page table refactoring, user-directed column mapping and interaction requirements.
+- **Logic:**
+  - **Batch as Grouping Unit:** Sales records are grouped by `batchId` — each batch represents a logical grouping of sales for a specific agent within a draw. A batch row displays: Batch ID, Agent Name (resolved from the agents list), ticket count, and total amount. Clicking a batch row expands it to reveal individual sale records (Ticket, Amount, Note) as indented child rows.
+  - **Column Mapping:** The table replaces the raw sale "ID" column with "Batch ID" (the database batch identifier). A new "Agent Name" column is added, resolved by joining the sale's `agentId` against the loaded agents list. "Tickets" shows the count of sales in the batch. "Total Amount" is the sum of all sale amounts in the batch.
+  - **Filtering:** Agent selection in the left panel filters the table. Selecting an agent shows only batches belonging to that agent. Deselecting (clicking the active agent again, or clicking empty space in the agent list panel or card header) resets to "All Agents" showing all batches for the current draw.
+  - **Sorting:** All four columns (Batch ID, Agent Name, Tickets, Total Amount) are sortable. Clicking a column header sorts ascending; clicking again toggles to descending. A sort arrow indicator (▴/▾) appears on the active column; idle columns show a faint arrow on hover.
+  - **Footer:** A fixed footer bar below the table displays "Total Batches: N" and "Total Amount: X" aggregated across all currently filtered records.
+- **Affects:** `frontend/src/pages/Sales.tsx` (`batchGroups`, `sortedGroups`, `filteredSales`), `frontend/src/styles/components/_draws.scss`.
