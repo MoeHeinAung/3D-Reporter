@@ -44,9 +44,9 @@ class API:
             "hostname": platform.node(),
         }
 
-    def get_uptime_seconds(self) -> float:
+    def get_uptime_seconds(self) -> int:
         """Return backend uptime in seconds (for the navbar clock/status)."""
-        return round(time.time() - self._start_time, 1)
+        return int(time.time() - self._start_time)
 
     def get_server_time(self) -> str:
         """Return current UTC datetime as ISO-8601 string."""

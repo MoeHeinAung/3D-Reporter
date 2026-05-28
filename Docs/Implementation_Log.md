@@ -26,3 +26,14 @@ This document records feature implementations and significant structural changes
   - **`_navbar.scss`:** Complete rewrite. 48px height with `rgba(2,6,23,0.9)` background + 12px backdrop blur. Subtle `1px solid rgba(255,255,255,0.05)` bottom border (replaces neon cyan edge). Three-section layout: left nav links, center trapezoid (64px tall, overflows navbar, inset glow + bottom cyan line), right section. Nav links use 12px Inter Bold Uppercase with `border-bottom: 2px solid primary` active indicator.
   - **`App.tsx`:** Restructured navbar to three-section layout (`navbar__left` + `navbar__trapezoid` + `navbar__right`). Added 96-cell `.grid-overlay` inside `main-content`. Cards get `zIndex: 1, position: relative` to sit above the overlay.
 - **Files:** `frontend/src/styles/abstracts/_tokens.scss`, `frontend/src/styles/base/_reset.scss`, `frontend/src/styles/components/_background.scss` (new), `frontend/src/styles/components/_navbar.scss`, `frontend/src/styles/main.scss`, `frontend/src/App.tsx`
+
+### IMPL-003: Client-Side Routing with react-router-dom
+
+- **Rationale:** Replace static `<a href="#">` navbar links with a proper client-side router. The navbar was reorganized into a three-section layout: Left (Draws, Partners, Report), Center trapezoid (Dashboard — the primary entry point), Right (Sales, Risk, Settings). Each link maps to a lazy-loaded route.
+- **Changes:**
+  - **`main.tsx`:** Wrapped app in `BrowserRouter` with a parent `<Route element={<App />}>` (the layout shell) and 7 child routes: index (`/` → Dashboard), `/draws`, `/partners`, `/report`, `/sales`, `/risk`, `/settings`.
+  - **`App.tsx`:** Refactored into a layout shell — keeps the `page-layout`, grid overlay, and navbar; renders child routes via `<Outlet />`. Moved Dashboard-specific cards into the Dashboard page. Extracted navbar into its own component.
+  - **`components/Navbar.tsx` (new):** Extracted navbar with `NavLink` components. Each link uses `className` callback for active-state styling. The center trapezoid text is now a `<NavLink to="/" end>` for the Dashboard entry point. Receives `uptime` and `onToggleTheme` props.
+  - **`pages/*.tsx` (7 new files):** `Dashboard.tsx` (existing cards), plus placeholder pages for Draws, Partners, Report, Sales, Risk, Settings — each renders a full-width card in the 12×8 grid.
+  - **`_navbar.scss`:** Added `text-decoration: none` to `&__trapezoid-text` and `&__link:hover` to prevent default link underlines from `_reset.scss`.
+- **Files:** `frontend/src/main.tsx`, `frontend/src/App.tsx`, `frontend/src/components/Navbar.tsx` (new), `frontend/src/pages/Dashboard.tsx` (new), `frontend/src/pages/Draws.tsx` (new), `frontend/src/pages/Partners.tsx` (new), `frontend/src/pages/Report.tsx` (new), `frontend/src/pages/Sales.tsx` (new), `frontend/src/pages/Risk.tsx` (new), `frontend/src/pages/Settings.tsx` (new), `frontend/src/styles/components/_navbar.scss`

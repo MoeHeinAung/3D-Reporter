@@ -63,6 +63,7 @@
 
     &:hover {
       color: var(--color-primary);
+      text-decoration: none;
     }
 
     &--active {
@@ -110,6 +111,11 @@
     color: var(--color-primary);
     filter: drop-shadow(0 0 10px rgba(0, 229, 255, 0.8));
     margin-bottom: 8px; // offset from trapezoid bottom edge
+    text-decoration: none;
+
+    &:hover {
+      text-decoration: none;
+    }
   }
 
   // ---- Clock ----

@@ -58,3 +58,7 @@ Immediately following any successful error resolution, update `Docs/KNOWN_ERRORS
 ### 3. Implementation Tracking
 
 Upon successful completion of any new feature or functional implementation, update `Docs/Implementation_Log.md` to document the changes made, the files affected, and the rationale behind key decisions.
+
+### 4. Business Logic Extraction
+
+When processing user prompts, detect and extract business logic, domain rules, and core ideas — including constraints, workflows, validation rules, status transitions, risk calculations, or any domain-specific terminology and reasoning. Whenever such information is identified, append it to `Docs/Business-Logic.md` under a dated entry. Record the source context (feature request, bug fix, design discussion), the logic in plain language, and which part of the system it affects.

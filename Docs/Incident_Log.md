@@ -68,3 +68,10 @@ This document records every error encountered during development, organized chro
 - **Root Cause:** On Windows, `/dev/null` is not a valid path. Bash in this environment translates it to `nul` (the Windows null device) but the sass CLI writes it as a regular file when the path doesn't exist as a device.
 - **Resolution:** Redirect Sass test output to a proper temp file or use the `--no-source-map` flag with no output argument. Cleaned the orphaned `nul` file.
 - **Files:** n/a (environment artifact)
+
+### INC-010: pywebview `_checkValue` crash on Python `float` return type
+
+- **Symptom:** `Uncaught (in promise) TypeError: Cannot set properties of undefined (setting '<id>')` at `Object._checkValue` in pywebview's internal JS API layer. Occurs when `get_uptime_seconds()` is called via `setInterval` every 1 second.
+- **Root Cause:** The Python API method `get_uptime_seconds` returns `round(time.time() - self._start_time, 1)` which is a Python `float`. pywebview's JS-side `_checkValue` deserializer tracks promise results on an internal registry object. Certain Python `float` values pass through a serialization path where the registry object is not yet initialized, causing the `Cannot set properties of undefined` error.
+- **Resolution:** Changed return type from `float` to `int` using `int(time.time() - self._start_time)`. The frontend already applies `Math.floor()` in `formatUptime()`, so sub-second precision was never needed. Python `int` serializes cleanly through pywebview's bridge as a JS `number`.
+- **Files:** `backend/api.py`
