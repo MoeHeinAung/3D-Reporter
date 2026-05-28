@@ -1,0 +1,264 @@
+// ============================================================================
+// SCSS MIXINS — "Futuristic Precision" Design System
+// Core mixins from Docs/UI-Design-system.md plus supporting utilities.
+// ============================================================================
+
+// ---------------------------------------------------------------------------
+// GLASS PANEL — Frosted glass surface (from design doc §3.2)
+// ---------------------------------------------------------------------------
+@mixin glass-panel($opacity: 0.7) {
+  background: rgba(20, 22, 28, $opacity);
+  backdrop-filter: blur(12px) saturate(120%);
+  -webkit-backdrop-filter: blur(12px) saturate(120%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+// Glass panel using CSS custom properties for theme support
+@mixin glass-panel-themed {
+  background: var(--color-glass-bg);
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
+  border: 1px solid var(--color-glass-border);
+}
+
+// ---------------------------------------------------------------------------
+// CORNER ACCENT — Bracket corner accents (from design doc §3.2)
+// Places 48px cyan brackets at Top-Left and Bottom-Right via pseudo-elements.
+// ---------------------------------------------------------------------------
+@mixin corner-accent(
+  $size: 48px,
+  $bar-height: 16px,
+  $thickness: 2px,
+  $color: var(--color-primary),
+  $offset: -1px
+) {
+  position: relative;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: $offset;
+    left: $offset;
+    width: $size;
+    height: $bar-height;
+    border-top: $thickness solid $color;
+    border-left: $thickness solid $color;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  &::after {
+    content: '';
+    position: absolute;
+    bottom: $offset;
+    right: $offset;
+    width: $size;
+    height: $bar-height;
+    border-bottom: $thickness solid $color;
+    border-right: $thickness solid $color;
+    pointer-events: none;
+    z-index: 1;
+  }
+}
+
+// Four-corner variant — brackets on all four corners
+@mixin corner-accent-all(
+  $size: 48px,
+  $bar-height: 16px,
+  $thickness: 2px,
+  $color: var(--color-primary),
+  $offset: -1px
+) {
+  position: relative;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: $offset;
+    left: $offset;
+    width: $size;
+    height: $bar-height;
+    border-top: $thickness solid $color;
+    border-left: $thickness solid $color;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  &::after {
+    content: '';
+    position: absolute;
+    top: $offset;
+    right: $offset;
+    width: $size;
+    height: $bar-height;
+    border-top: $thickness solid $color;
+    border-right: $thickness solid $color;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  // Need a wrapper or additional markup for bottom corners in pure CSS.
+  // Use inner pseudo-elements on a child element instead.
+}
+
+// ---------------------------------------------------------------------------
+// TRAPEZOID CLIP — For the command navbar logo (from design doc §3.1)
+// ---------------------------------------------------------------------------
+@mixin trapezoid-clip($top-width: 100%, $bottom-width: 85%) {
+  clip-path: polygon(
+    0% 0%,
+    $top-width 0%,
+    $bottom-width 100%,
+    0% 100%
+  );
+}
+
+// ---------------------------------------------------------------------------
+// SPECIAL BUTTON — Gradient "swipe" animation (from design doc §3.4)
+// ---------------------------------------------------------------------------
+@mixin btn-special($from: var(--color-primary), $to: var(--color-secondary)) {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid $from;
+  background: transparent;
+  color: $from;
+  cursor: pointer;
+  transition:
+    color var(--duration-normal) var(--ease-out-expo),
+    box-shadow var(--duration-normal) var(--ease-out-expo);
+
+  // Sweep layer
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(105deg, transparent 40%, rgba($from, 0.15) 45%, $to 50%, rgba($from, 0.15) 55%, transparent 60%);
+    background-size: 250% 100%;
+    background-position: 150% 0;
+    transition: background-position var(--duration-slow) var(--ease-out-expo);
+    z-index: 0;
+  }
+
+  &:hover {
+    color: var(--color-void);
+    box-shadow: var(--shadow-neon-primary);
+
+    &::before {
+      background-position: -150% 0;
+    }
+  }
+
+  // Ensure text sits above the sweep
+  > * {
+    position: relative;
+    z-index: 1;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// INPUT GLOW — Focus ring for operational inputs (from design doc §3.4)
+// ---------------------------------------------------------------------------
+@mixin input-glow($color: var(--color-primary)) {
+  outline: none;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-surface);
+  color: var(--color-text-primary);
+  transition:
+    border-color var(--duration-fast) var(--ease-out-expo),
+    box-shadow var(--duration-fast) var(--ease-out-expo);
+
+  &:focus-visible {
+    border-color: $color;
+    box-shadow: 0 0 8px rgba($color, 0.35);
+  }
+
+  &::placeholder {
+    color: var(--color-text-muted);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// SCROLL CONTAINER — Internal overflow for grid-locked cards
+// ---------------------------------------------------------------------------
+@mixin scroll-container($direction: vertical) {
+  overflow: hidden;
+  @if $direction == vertical {
+    overflow-y: auto;
+    overflow-x: hidden;
+  } @else if $direction == horizontal {
+    overflow-y: hidden;
+    overflow-x: auto;
+  } @else {
+    overflow: auto;
+  }
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+
+  &::-webkit-scrollbar {
+    @if $direction == vertical {
+      width: 6px;
+      height: 0;
+    } @else if $direction == horizontal {
+      width: 0;
+      height: 6px;
+    } @else {
+      width: 6px;
+      height: 6px;
+    }
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: var(--color-border);
+    border-radius: 3px;
+
+    &:hover {
+      background: var(--color-text-muted);
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// HUD TEXT — Telemetry/heading style
+// ---------------------------------------------------------------------------
+@mixin hud-text($size: var(--text-md)) {
+  font-family: var(--font-heading);
+  font-size: $size;
+  font-weight: 600;
+  letter-spacing: var(--tracking-heading);
+  text-transform: uppercase;
+}
+
+// ---------------------------------------------------------------------------
+// TELEMETRY NUMBER — Monospace data display
+// ---------------------------------------------------------------------------
+@mixin telemetry-number($size: var(--text-lg)) {
+  font-family: var(--font-mono);
+  font-size: $size;
+  font-weight: 500;
+  letter-spacing: var(--tracking-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+// ---------------------------------------------------------------------------
+// HOLOGRAM RADIAL — Subtle internal glow on card surfaces
+// ---------------------------------------------------------------------------
+@mixin hologram-radial {
+  background: var(--color-radial-glow), var(--color-glass-bg);
+}
+
+// ---------------------------------------------------------------------------
+// RESPOND-TO — Breakpoint helper (desktop-first; few breakpoints by design)
+// ---------------------------------------------------------------------------
+@mixin respond-to($breakpoint) {
+  @if $breakpoint == small {
+    @media (max-width: 1280px) { @content; }
+  } @else if $breakpoint == medium {
+    @media (max-width: 1600px) { @content; }
+  } @else if $breakpoint == large {
+    @media (min-width: 1920px) { @content; }
+  }
+}

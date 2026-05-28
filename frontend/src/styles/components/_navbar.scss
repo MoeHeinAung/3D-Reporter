@@ -1,0 +1,124 @@
+// ============================================================================
+// COMMAND NAVBAR — Docs/UI-Design-system.md §3.1
+// Center-cut trapezoid logo, cyan neon bottom edge, glass background.
+// ============================================================================
+
+@use '../abstracts/mixins' as *;
+
+.navbar {
+  @include glass-panel(0.9);
+
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: 0 var(--space-5);
+  height: 100%;
+  backdrop-filter: blur(12px);
+  box-shadow: var(--shadow-navbar-glow);
+  border-bottom: 2px solid var(--color-primary);
+
+  // ---- Logo: Trapezoid Container ----
+  &__logo {
+    @include trapezoid-clip(85%, 100%);
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    padding: 0 var(--space-6);
+    background: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
+    flex-shrink: 0;
+
+    // Logo text
+    &-text {
+      @include hud-text(var(--text-md));
+      color: var(--color-void);
+      font-weight: 700;
+      white-space: nowrap;
+    }
+  }
+
+  // ---- Navigation Links ----
+  &__nav {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+    flex: 1;
+    height: 100%;
+  }
+
+  &__link {
+    @include hud-text(var(--text-sm));
+    display: flex;
+    align-items: center;
+    height: 100%;
+    padding: 0 var(--space-4);
+    color: var(--color-text-secondary);
+    position: relative;
+    transition: color var(--duration-fast) var(--ease-out-expo);
+
+    // Inactive: subtle bottom border on hover
+    &::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: var(--space-4);
+      right: var(--space-4);
+      height: 2px;
+      background: var(--color-primary);
+      transform: scaleX(0);
+      transition: transform var(--duration-normal) var(--ease-out-expo);
+    }
+
+    &:hover {
+      color: var(--color-text-primary);
+
+      &::after {
+        transform: scaleX(1);
+      }
+    }
+
+    // Active link
+    &--active {
+      color: var(--color-primary);
+      box-shadow: 0 2px 0 var(--color-primary);
+
+      &::after {
+        display: none;
+      }
+    }
+  }
+
+  // ---- Right-side Actions ----
+  &__actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    margin-left: auto;
+  }
+
+  // Status indicator dot
+  &__status {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--color-primary);
+    box-shadow: 0 0 6px var(--color-primary);
+
+    &--warning {
+      background: var(--color-error);
+      box-shadow: 0 0 6px var(--color-error);
+    }
+
+    &--idle {
+      background: var(--color-text-muted);
+      box-shadow: none;
+    }
+  }
+
+  // Time / clock display
+  &__clock {
+    @include telemetry-number(var(--text-sm));
+    color: var(--color-text-secondary);
+  }
+}

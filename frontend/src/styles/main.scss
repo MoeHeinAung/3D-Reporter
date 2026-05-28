@@ -1,0 +1,22 @@
+// ============================================================================
+// MAIN SCSS — "Futuristic Precision" Design System
+// Aggregates all partials in load order.
+// ============================================================================
+
+// Layer 1: Abstracts (tokens → functions → mixins)
+@use 'abstracts/tokens';
+@use 'abstracts/functions';
+@use 'abstracts/mixins';
+
+// Layer 2: Base (reset → typography → theme)
+@use 'base/reset';
+@use 'base/typography';
+@use 'base/theme';
+
+// Layer 3: Components (order matters for cascade)
+@use 'components/animations';
+@use 'components/grid';
+@use 'components/card';
+@use 'components/navbar';
+@use 'components/inputs';
+@use 'components/scroll-container';

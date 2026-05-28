@@ -1,0 +1,142 @@
+// ============================================================================
+// ANIMATIONS — "Futuristic Precision" vibe
+// Scanner lines, hologram pulses, digital ping — from Docs/UI-Design-system.md §4
+// ============================================================================
+
+// ---- Scanner Line ----
+// Slow vertical pulse across loading panels
+@keyframes scanline {
+  0% {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  10% {
+    opacity: 0.6;
+  }
+  90% {
+    opacity: 0.6;
+  }
+  100% {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+}
+
+.scanline {
+  position: relative;
+  overflow: hidden;
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      to bottom,
+      transparent 0%,
+      rgba(0, 240, 255, 0.04) 45%,
+      rgba(0, 240, 255, 0.12) 50%,
+      rgba(0, 240, 255, 0.04) 55%,
+      transparent 100%
+    );
+    animation: scanline var(--duration-scanner) ease-in-out infinite;
+    pointer-events: none;
+    z-index: 2;
+  }
+}
+
+// ---- Hologram Pulse ----
+// Subtle opacity cycle on active risk cards
+@keyframes pulse-hologram {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.85;
+  }
+}
+
+.pulse-hologram {
+  animation: pulse-hologram var(--duration-pulse) ease-in-out infinite;
+}
+
+// ---- Digital Ping ----
+// Button scale + flash on click
+@keyframes digital-ping {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(0, 240, 255, 0.5);
+  }
+  30% {
+    transform: scale(0.96);
+  }
+  60% {
+    transform: scale(1.02);
+    box-shadow: 0 0 0 8px rgba(0, 240, 255, 0);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(0, 240, 255, 0);
+  }
+}
+
+.digital-ping {
+  &:active {
+    animation: digital-ping var(--duration-slow) var(--ease-out-expo);
+  }
+}
+
+// ---- Gradient Swipe (for btn-special) ----
+@keyframes gradient-swipe {
+  0% {
+    background-position: 150% 0;
+  }
+  100% {
+    background-position: -50% 0;
+  }
+}
+
+// ---- Fade In Up ----
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up var(--duration-normal) var(--ease-out-expo) forwards;
+}
+
+// Staggered children
+@for $i from 1 through 12 {
+  .animate-fade-in-up:nth-child(#{$i}) {
+    animation-delay: calc(#{$i - 1} * 60ms);
+  }
+}
+
+// ---- Glitch (on hover for critical data) ----
+@keyframes glitch {
+  0%, 100% {
+    transform: translate(0);
+  }
+  20% {
+    transform: translate(-1px, 1px);
+  }
+  40% {
+    transform: translate(1px, -1px);
+  }
+  60% {
+    transform: translate(-1px, -1px);
+  }
+  80% {
+    transform: translate(1px, 1px);
+  }
+}
+
+.glitch-hover:hover {
+  animation: glitch 150ms steps(2) infinite;
+}

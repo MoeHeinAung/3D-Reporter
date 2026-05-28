@@ -1,0 +1,49 @@
+// ============================================================================
+// SCSS FUNCTIONS
+// Utility functions used across the design system.
+// ============================================================================
+
+@use 'sass:math';
+
+// Strip the unit from a value (e.g., 16px → 16)
+@function strip-unit($value) {
+  @return math.div($value, $value * 0 + 1);
+}
+
+// Convert px to rem (base 16)
+@function rem($px) {
+  @return math.div($px, 16) * 1rem;
+}
+
+// Convert px to em relative to an optional base
+@function em($px, $base: 16) {
+  @return math.div($px, $base) * 1em;
+}
+
+// Clamp-based fluid size between two viewport breakpoints
+@function fluid-size($min, $max, $min-vw: 1024, $max-vw: 1920) {
+  $slope: math.div($max - $min, $max-vw - $min-vw);
+  $intercept: $min - $slope * $min-vw;
+  @return clamp(#{$min}, #{$intercept} + #{$slope} * 100vw, #{$max});
+}
+
+// Lighten a color by mixing with white
+@function tint($color, $percentage) {
+  @return mix(white, $color, $percentage);
+}
+
+// Darken a color by mixing with black
+@function shade($color, $percentage) {
+  @return mix(black, $color, $percentage);
+}
+
+// Apply alpha to a hex color (returns rgba string)
+@function alpha($color, $opacity) {
+  @return rgba($color, $opacity);
+}
+
+// Calculate grid row height for the 12×8 grid
+// Rows: repeat(8, calc((100% - (7 * gap)) / 8))
+@function grid-row-height($gap: var(--grid-gap)) {
+  @return calc((100% - (7 * #{$gap})) / 8);
+}

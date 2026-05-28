@@ -1,0 +1,125 @@
+// ============================================================================
+// OPERATIONAL CARDS — Docs/UI-Design-system.md §3.2
+// Glassmorphism cards with bracket corner accents.
+// ============================================================================
+
+@use '../abstracts/mixins' as *;
+
+.card {
+  @include glass-panel-themed;
+  @include hologram-radial;
+  @include corner-accent;
+
+  position: relative;
+  overflow: hidden;
+  padding: var(--space-5);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+
+  // Card header with HUD-style title
+  &__header {
+    @include hud-text(var(--text-sm));
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: var(--space-3);
+    margin-bottom: var(--space-3);
+    border-bottom: 1px solid var(--color-border);
+    flex-shrink: 0;
+  }
+
+  // Card body — scrollable content area
+  &__body {
+    flex: 1;
+    min-height: 0; // Required for flex children to scroll
+    @include scroll-container;
+  }
+
+  // Card footer
+  &__footer {
+    flex-shrink: 0;
+    padding-top: var(--space-3);
+    margin-top: var(--space-3);
+    border-top: 1px solid var(--color-border);
+  }
+}
+
+// ---- Card Variants ----
+
+// Risk card — pulses when active
+.card--risk {
+  border-color: rgba(255, 0, 85, 0.25);
+
+  &.card--active {
+    animation: pulse-hologram var(--duration-pulse) ease-in-out infinite;
+    border-color: rgba(255, 0, 85, 0.5);
+    box-shadow: var(--shadow-neon-error);
+  }
+}
+
+// Active card — brighter border, subtle glow
+.card--active {
+  border-color: rgba(0, 240, 255, 0.3);
+  box-shadow: var(--shadow-neon-primary);
+}
+
+// Compact card — less padding for dense telemetry
+.card--compact {
+  padding: var(--space-3);
+
+  .card__header {
+    padding-bottom: var(--space-2);
+    margin-bottom: var(--space-2);
+  }
+
+  .card__footer {
+    padding-top: var(--space-2);
+    margin-top: var(--space-2);
+  }
+}
+
+// Full-corner accent variant (brackets on all 4 corners)
+// Requires an inner element for the bottom brackets:
+// <div class="card card--all-corners"><div class="card__inner">...</div></div>
+.card--all-corners {
+  &::before {
+    top: -1px;
+    left: -1px;
+    border-top: 2px solid var(--color-primary);
+    border-left: 2px solid var(--color-primary);
+  }
+
+  &::after {
+    top: -1px;
+    right: -1px;
+    border-top: 2px solid var(--color-primary);
+    border-right: 2px solid var(--color-primary);
+  }
+
+  .card__inner::before {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    left: -1px;
+    width: 48px;
+    height: 16px;
+    border-bottom: 2px solid var(--color-primary);
+    border-left: 2px solid var(--color-primary);
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  .card__inner::after {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    right: -1px;
+    width: 48px;
+    height: 16px;
+    border-bottom: 2px solid var(--color-primary);
+    border-right: 2px solid var(--color-primary);
+    pointer-events: none;
+    z-index: 1;
+  }
+}

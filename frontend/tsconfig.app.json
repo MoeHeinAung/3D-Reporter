@@ -19,7 +19,16 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "erasableSyntaxOnly": true,
-    "noFallthroughCasesInSwitch": true
+    "noFallthroughCasesInSwitch": true,
+
+    /* Path aliases */
+    "baseUrl": ".",
+    "ignoreDeprecations": "6.0",
+    "paths": {
+      "@/*": ["src/*"],
+      "@styles/*": ["src/styles/*"],
+      "@components/*": ["src/components/*"]
+    }
   },
   "include": ["src"]
 }

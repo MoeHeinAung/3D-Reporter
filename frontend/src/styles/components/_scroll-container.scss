@@ -1,0 +1,25 @@
+// ============================================================================
+// SCROLL CONTAINER — Internal overflow for grid-locked cards
+// Docs/UI-Design-system.md §2: content that exceeds card boundaries
+// must use internal scroll to preserve grid rigidity.
+// ============================================================================
+
+@use '../abstracts/mixins' as *;
+
+.scroll-container {
+  @include scroll-container(vertical);
+
+  &--horizontal {
+    @include scroll-container(horizontal);
+  }
+
+  &--both {
+    @include scroll-container(vertical);
+    overflow-x: auto;
+
+    &::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+  }
+}

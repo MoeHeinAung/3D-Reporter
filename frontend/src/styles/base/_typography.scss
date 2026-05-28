@@ -1,0 +1,104 @@
+// ============================================================================
+// TYPOGRAPHY — "Futuristic Precision"
+// Google Fonts: Tektur (headings), Instrument Sans (body), JetBrains Mono (telemetry)
+// Modular scale: 1.25 — from Docs/UI-Design-system.md §1.3
+// ============================================================================
+
+// Google Fonts import — 2 families via a single request to limit round-trips
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Sans:wdth,wght@75..100,400..700&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&family=Tektur:wdth,wght@75..100,400..900&display=swap');
+
+// ---- Type Scale Utility Classes ----
+
+@each $name, $var in (
+  'xs':   var(--text-xs),
+  'sm':   var(--text-sm),
+  'base': var(--text-base),
+  'md':   var(--text-md),
+  'lg':   var(--text-lg),
+  'xl':   var(--text-xl),
+  '2xl':  var(--text-2xl),
+  '3xl':  var(--text-3xl),
+  '4xl':  var(--text-4xl)
+) {
+  .text-#{$name} {
+    font-size: $var;
+  }
+}
+
+// ---- Structural Headers (HUD-style) ----
+// Tektur, UPPERCASE, 0.05em tracking, geometric
+
+h1, h2, h3, h4,
+.h1, .h2, .h3, .h4 {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  letter-spacing: var(--tracking-heading);
+  text-transform: uppercase;
+  line-height: var(--leading-tight);
+}
+
+h1, .h1 { font-size: var(--text-4xl); }
+h2, .h2 { font-size: var(--text-3xl); }
+h3, .h3 { font-size: var(--text-2xl); }
+h4, .h4 { font-size: var(--text-xl); }
+
+// ---- Body / Narrative ----
+// Instrument Sans — humanist sans-serif for labels and text
+
+body,
+.text-body {
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  font-weight: 400;
+  line-height: var(--leading-normal);
+}
+
+.text-body-sm {
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  line-height: var(--leading-relaxed);
+}
+
+// ---- Telemetry / Numbers ----
+// JetBrains Mono — monospace for numeric data, tickets, IDs
+
+.telemetry,
+.mono {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  letter-spacing: var(--tracking-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.telemetry-lg { font-size: var(--text-xl); }
+.telemetry-md { font-size: var(--text-lg); }
+.telemetry-sm { font-size: var(--text-md); }
+
+// ---- Label ----
+// Pill/caption text for status indicators and metadata
+
+.label,
+.label-sm {
+  font-family: var(--font-heading);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-heading);
+}
+
+.label    { font-size: var(--text-sm); }
+.label-sm { font-size: var(--text-xs); }
+
+// ---- Text Color Utilities ----
+
+.text-primary    { color: var(--color-text-primary); }
+.text-secondary  { color: var(--color-text-secondary); }
+.text-muted      { color: var(--color-text-muted); }
+.text-accent     { color: var(--color-primary); }
+.text-error      { color: var(--color-error); }
+
+// ---- Weight Utilities ----
+
+.font-light    { font-weight: 300; }
+.font-regular  { font-weight: 400; }
+.font-medium   { font-weight: 500; }
+.font-semibold { font-weight: 600; }
+.font-bold     { font-weight: 700; }

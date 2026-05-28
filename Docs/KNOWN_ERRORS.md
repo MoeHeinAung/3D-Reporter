@@ -14,6 +14,12 @@ This document serves as a strategic reference for common errors, logical issues,
 *   **Circular Dependency Crashes**
     *   **Context:** Backend startup failures caused by importing models too early in the database initialization phase.
     *   **Resolution:** Defer model imports to specific scopes (e.g., inside the migration environment or service functions) rather than the global database base class.
+*   **Windows Subprocess Resolution**
+    *   **Context:** `subprocess.Popen` fails with `FileNotFoundError` for `npm`/`npx` on Windows, despite the commands being available in the terminal.
+    *   **Resolution:** On Windows, `npm` and `npx` are `.cmd` batch files that `Popen` with `shell=False` cannot resolve. Detect `sys.platform` and append `.cmd` explicitly (`"npm.cmd"` / `"npx.cmd"`). Do not use `shell=True` as a workaround; it introduces injection risk and cross-platform inconsistency.
+*   **Long-Running Subprocess I/O Deadlocks**
+    *   **Context:** Reading `proc.stdout` in a blocking `for` loop causes the parent process to hang when the child (a dev server) stops producing output but never exits.
+    *   **Resolution:** Drain subprocess stdout from a daemon `threading.Thread`. Use a `threading.Event` signaled by key output (e.g., `"Local:"`) for readiness detection. Poll `proc.poll()` to detect early process death and fail fast rather than waiting for the full timeout.
 
 ## 2. Architectural Guardrails
 **Challenge:** Maintaining the integrity of the 5-layer system.
@@ -40,6 +46,15 @@ This document serves as a strategic reference for common errors, logical issues,
 *   **Data Flow Crashes (Null Safety)**
     *   **Context:** UI crashes when receiving incomplete data or empty arrays from the backend.
     *   **Resolution:** Enforce defensive UI programming. Use `Array.isArray()` checks before rendering and null-safe numeric formatting (e.g., `value ?? 0`) for all telemetry data.
+*   **SCSS Module System Hygiene**
+    *   **Context:** Compilation failures from `@use 'sass:math'` omission, and deprecation warnings from the legacy `if()` function syntax in Sass >=1.100.
+    *   **Resolution:** Every `.scss` partial that calls `math.div()` must declare `@use 'sass:math';` at the top. Prefer `@if`/`@else` directive blocks over the legacy ternary `if($cond, $then, $else)` function. When a component file references mixins from another module, it must explicitly `@use` that module — the Sass module system does not leak globals across files.
+*   **TypeScript Path Alias Deprecation**
+    *   **Context:** TypeScript 6.0 deprecates `baseUrl` when used alongside `paths`, warning it will stop functioning in TS 7.0.
+    *   **Resolution:** When `moduleResolution` is `"bundler"`, Vite handles alias resolution at build time, but `tsconfig` `paths` remain necessary for IDE support. Add `"ignoreDeprecations": "6.0"` to silence the warning until a `paths`-only replacement is available. Monitor the TS 7.0 migration guide for the successor syntax.
+*   **Vite Configuration Drift**
+    *   **Context:** Experimental or version-specific Vite config keys (e.g., `css.preprocessorOptions.scss.api`) break type-checking after a Vite major upgrade.
+    *   **Resolution:** Keep `vite.config.ts` minimal. Remove any key that `tsc` reports as non-existent in the current Vite type definitions. Features like the modern Sass compiler API are auto-detected by Vite when the installed `sass` package supports them.
 
 ## 4. Logical & Business Rules
 **Challenge:** Accuracy in the gaming and risk management domain.
@@ -63,3 +78,6 @@ This document serves as a strategic reference for common errors, logical issues,
 *   **Aesthetic Drift**
     *   **Context:** Introduction of standard UI elements that clash with the sci-fi theme.
     *   **Resolution:** Strictly follow the `design-system.md` specifications. Use the centralized SCSS theme for "Void Black" backgrounds and "Neon" accents, maintaining a consistent 12x8 grid layout.
+*   **Animation Namespace Collision**
+    *   **Context:** Attempting to invoke a CSS `@keyframes` animation or utility class via `@include` (Sass mixin syntax), causing compilation failure.
+    *   **Resolution:** Maintain a strict separation in the SCSS architecture: `@keyframes` and utility classes (`.pulse-hologram`, `.digital-ping`) belong to the CSS cascade and are consumed via `animation:` properties or class names. Reusable logic blocks (`glass-panel`, `corner-accent`) belong to mixins and are consumed via `@include`. Never cross the streams — if it's defined with `@keyframes` or `.class`, it's not a mixin.

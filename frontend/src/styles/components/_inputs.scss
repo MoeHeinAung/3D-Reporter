@@ -1,0 +1,193 @@
+// ============================================================================
+// OPERATIONAL INPUTS — Docs/UI-Design-system.md §3.4
+// Sharp-edged inputs with neon glow focus states.
+// Special buttons with gradient-swipe "Digital Ping" interaction.
+// ============================================================================
+
+@use '../abstracts/mixins' as *;
+
+// ---- Base Input ----
+.input {
+  @include input-glow(var(--color-primary));
+
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+
+  // Error state
+  &.input--error {
+    border-color: var(--color-error);
+    box-shadow: 0 0 8px var(--color-error-glow);
+  }
+}
+
+// ---- Textarea ----
+.textarea {
+  @extend .input;
+  min-height: 80px;
+  resize: vertical;
+}
+
+// ---- Select ----
+.select {
+  @include input-glow(var(--color-primary));
+
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  appearance: none;
+  cursor: pointer;
+
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%238892A4' d='M1.41 0L6 4.58 10.59 0 12 1.41l-6 6-6-6z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right var(--space-3) center;
+  padding-right: var(--space-8);
+}
+
+// ---- Label ----
+.input-label {
+  @include hud-text(var(--text-xs));
+  display: block;
+  margin-bottom: var(--space-1);
+  color: var(--color-text-secondary);
+}
+
+// ---- Base Button ----
+.btn {
+  @include hud-text(var(--text-sm));
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-5);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-surface);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  transition:
+    border-color var(--duration-fast) var(--ease-out-expo),
+    box-shadow var(--duration-fast) var(--ease-out-expo),
+    background var(--duration-fast) var(--ease-out-expo);
+
+  &:hover {
+    border-color: var(--color-primary);
+  }
+
+  &:focus-visible {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 8px var(--color-accent-glow);
+  }
+
+  &:active {
+    animation: digital-ping var(--duration-slow) var(--ease-out-expo);
+  }
+}
+
+// ---- Primary Button ----
+.btn--primary {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: var(--color-void);
+  font-weight: 600;
+
+  &:hover {
+    background: rgba(0, 240, 255, 0.85);
+    box-shadow: var(--shadow-neon-primary);
+  }
+}
+
+// ---- Special Button (Digital Ping) ----
+.btn--special {
+  @include btn-special;
+  @include hud-text(var(--text-sm));
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-5);
+  font-weight: 600;
+
+  &:active {
+    animation: digital-ping var(--duration-slow) var(--ease-out-expo);
+  }
+}
+
+// ---- Error / Danger Button ----
+.btn--danger {
+  border-color: var(--color-error);
+  color: var(--color-error);
+
+  &:hover {
+    background: var(--color-error);
+    color: var(--color-void);
+    box-shadow: var(--shadow-neon-error);
+  }
+}
+
+// ---- Icon Button ----
+.btn--icon {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  background: var(--color-glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+}
+
+// ---- Button Sizes ----
+.btn--sm {
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--text-xs);
+}
+
+.btn--lg {
+  padding: var(--space-3) var(--space-8);
+  font-size: var(--text-md);
+}
+
+// ---- Checkbox / Toggle ----
+.toggle {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  cursor: pointer;
+
+  input {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+
+  &__track {
+    width: 40px;
+    height: 22px;
+    background: var(--color-border);
+    transition: background var(--duration-fast) var(--ease-out-expo);
+  }
+
+  input:checked + &__track {
+    background: var(--color-primary);
+    box-shadow: 0 0 8px var(--color-accent-glow);
+  }
+
+  &__thumb {
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 16px;
+    height: 16px;
+    background: var(--color-text-primary);
+    transition: transform var(--duration-fast) var(--ease-out-expo);
+  }
+
+  input:checked ~ &__thumb {
+    transform: translateX(18px);
+  }
+}

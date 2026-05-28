@@ -1,0 +1,110 @@
+// ============================================================================
+// CSS RESET & BASE — "Futuristic Precision"
+// Viewport-locked, high-contrast, no-scroll foundation.
+// ============================================================================
+
+// Box sizing
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+// Viewport lock — the application is non-scrolling by design
+html,
+body {
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+// Root background
+body {
+  background: var(--color-bg-root);
+  color: var(--color-text-primary);
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
+}
+
+// Media defaults
+img,
+svg,
+video,
+canvas {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+// Interactive element reset
+button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 0;
+}
+
+input,
+textarea,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+// Links
+a {
+  color: var(--color-primary);
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+// Remove list styles
+ul,
+ol {
+  list-style: none;
+}
+
+// Tables inherit font
+table {
+  border-collapse: collapse;
+  border-spacing: 0;
+}
+
+// Focus ring — visible only on keyboard navigation
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+// Remove focus ring for mouse users
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+// Selection highlight
+::selection {
+  background: rgba(0, 240, 255, 0.25);
+  color: var(--color-text-primary);
+}
+
+// Reduced motion fallback
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
