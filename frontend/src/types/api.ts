@@ -42,6 +42,22 @@ export interface SaleResult {
   amount: number
 }
 
+export interface SaleRecord {
+  id: number
+  drawId: number
+  agentId: string
+  batchId: number
+  ticket: string
+  amount: number
+  note: string | null
+}
+
+export interface BatchInfo {
+  id: number
+  drawId: number
+  agentId: string
+}
+
 /** Standard error shape returned by the backend on failure. */
 export interface ApiError {
   error: string

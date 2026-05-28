@@ -21,3 +21,11 @@ class SaleRepository(BaseRepository[Sale]):
                 Sale.draw_id == draw_id, Sale.ticket == ticket
             ).all()
         )
+
+    def get_by_draw(self, draw_id: int) -> list[Sale]:
+        return list(
+            self.session.query(Sale)
+            .filter(Sale.draw_id == draw_id)
+            .order_by(Sale.id.desc())
+            .all()
+        )

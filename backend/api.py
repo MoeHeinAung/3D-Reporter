@@ -292,6 +292,29 @@ class API:
             return {"id": sale.id, "ticket": sale.ticket, "amount": sale.amount}
         return self._with_session(_do)
 
+    def get_sales_by_draw(self, draw_id: int) -> list[dict[str, Any]]:
+        def _do(s: Any) -> list[dict[str, Any]]:
+            sales = SalesService(s).get_sales_by_draw(draw_id)
+            return [
+                {
+                    "id": sale.id,
+                    "drawId": sale.draw_id,
+                    "agentId": sale.agent_id,
+                    "batchId": sale.batch_id,
+                    "ticket": sale.ticket,
+                    "amount": sale.amount,
+                    "note": sale.note,
+                }
+                for sale in sales
+            ]
+        return self._with_session(_do)
+
+    def get_or_create_batch(self, draw_id: int, agent_id: str) -> dict[str, Any]:
+        def _do(s: Any) -> dict[str, Any]:
+            batch = SalesService(s).get_or_create_batch(draw_id, agent_id)
+            return {"id": batch.id, "drawId": batch.draw_id, "agentId": batch.agent_id}
+        return self._with_session(_do)
+
     # ------------------------------------------------------------------
     # Command / Action
     # ------------------------------------------------------------------

@@ -11,6 +11,8 @@ import type {
   SystemInfo,
   DrawResult,
   SaleResult,
+  SaleRecord,
+  BatchInfo,
   ApiError,
   BlacklistTicketResult,
   WinningTicketResult,
@@ -56,6 +58,8 @@ interface PywebviewAPI {
   create_master_dealer(id: string, name: string, commission?: number, jp_factor?: number, sp_factor?: number, note?: string): Promise<PartnerResult | ApiError>
   update_master_dealer(dealer_id: string, name?: string, commission?: number, jp_factor?: number, sp_factor?: number, note?: string): Promise<PartnerResult | ApiError>
   delete_master_dealer(dealer_id: string): Promise<DeleteResult | ApiError>
+  get_sales_by_draw(draw_id: number): Promise<SaleRecord[] | ApiError>
+  get_or_create_batch(draw_id: number, agent_id: string): Promise<BatchInfo | ApiError>
 }
 
 // ---------------------------------------------------------------------------
@@ -71,6 +75,10 @@ interface MockState {
   _mockWinnings: Array<{ id: number; drawId: number; ticket: string; type: string }>
   _mockAgents: Agent[]
   _mockMasterDealers: MasterDealer[]
+  _mockSales: SaleRecord[]
+  _nextSaleId: number
+  _nextBatchId: number
+  _mockBatches: Array<{ id: number; drawId: number; agentId: string; totalAmount: number }>
 }
 
 // ---------------------------------------------------------------------------
@@ -159,8 +167,20 @@ function getAPI(): PywebviewAPI {
       const d = this._mockDraws.find((x) => x.status === 'OPEN')
       return d ?? null
     },
-    async record_sale() {
-      return { id: 1, ticket: '123', amount: 100 }
+    async record_sale(this: MockState, draw_id: number, agent_id: string, _batch_id: number, ticket: string, amount: number, note?: string) {
+      const entry: SaleRecord = {
+        id: this._nextSaleId++,
+        drawId: draw_id,
+        agentId: agent_id,
+        batchId: _batch_id,
+        ticket,
+        amount,
+        note: note ?? null,
+      }
+      this._mockSales.push(entry)
+      const batch = this._mockBatches.find((b) => b.id === _batch_id)
+      if (batch) batch.totalAmount += amount
+      return { id: entry.id, ticket: entry.ticket, amount: entry.amount }
     },
 
     // -- Draw CRUD --
@@ -174,6 +194,12 @@ function getAPI(): PywebviewAPI {
     // -- Agent & Master Dealer --
     _mockAgents: [] as Agent[],
     _mockMasterDealers: [] as MasterDealer[],
+
+    // -- Sales & Batches --
+    _mockSales: [] as SaleRecord[],
+    _nextSaleId: 1,
+    _nextBatchId: 1,
+    _mockBatches: [] as Array<{ id: number; drawId: number; agentId: string; totalAmount: number }>,
 
     async get_all_draws(this: MockState) {
       return [...this._mockDraws].reverse()
@@ -280,6 +306,21 @@ function getAPI(): PywebviewAPI {
       if (idx === -1) return { error: `Master Dealer ${dealer_id} not found.` }
       this._mockMasterDealers.splice(idx, 1)
       return { ok: true }
+    },
+
+    // -- Sales & Batches --
+    async get_sales_by_draw(this: MockState, draw_id: number) {
+      return this._mockSales
+        .filter((s) => s.drawId === draw_id)
+        .sort((a, b) => b.id - a.id)
+    },
+    async get_or_create_batch(this: MockState, draw_id: number, agent_id: string) {
+      let batch = this._mockBatches.find((b) => b.drawId === draw_id && b.agentId === agent_id)
+      if (!batch) {
+        batch = { id: this._nextBatchId++, drawId: draw_id, agentId: agent_id, totalAmount: 0 }
+        this._mockBatches.push(batch)
+      }
+      return { id: batch.id, drawId: batch.drawId, agentId: batch.agentId }
     },
 
     async echo(message: string) {

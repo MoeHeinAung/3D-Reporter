@@ -80,6 +80,23 @@ class SalesService:
 
         return sale
 
+    def get_sales_by_draw(self, draw_id: int) -> list[Sale]:
+        """Return all sales for a draw, newest first."""
+        return self._sale_repo.get_by_draw(draw_id)
+
+    def get_or_create_batch(self, draw_id: int, agent_id: str) -> Batch:
+        """Return the existing batch for a draw+agent, or create one.
+
+        Raises NotFoundError if the draw or agent does not exist.
+        """
+        batch = self._batch_repo.get_by_draw_and_agent(draw_id, agent_id)
+        if batch is not None:
+            return batch
+        draw = self._draw_repo.get_by_id(draw_id)
+        if draw is None:
+            raise NotFoundError(f"Draw {draw_id} not found.")
+        return self._batch_repo.create(draw_id=draw_id, agent_id=agent_id, total_amount=0)
+
     def _recalc_batch_total(self, batch_id: int) -> None:
         from sqlalchemy import func
 

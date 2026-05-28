@@ -14,3 +14,10 @@ class BatchRepository(BaseRepository[Batch]):
 
     def get_by_draw(self, draw_id: int) -> list[Batch]:
         return list(self.session.query(Batch).filter(Batch.draw_id == draw_id).all())
+
+    def get_by_draw_and_agent(self, draw_id: int, agent_id: str) -> Batch | None:
+        return (
+            self.session.query(Batch)
+            .filter(Batch.draw_id == draw_id, Batch.agent_id == agent_id)
+            .first()
+        )
