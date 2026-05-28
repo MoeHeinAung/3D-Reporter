@@ -78,6 +78,9 @@ This document serves as a strategic reference for common errors, logical issues,
 *   **Aesthetic Drift**
     *   **Context:** Introduction of standard UI elements that clash with the sci-fi theme.
     *   **Resolution:** Strictly follow the `design-system.md` specifications. Use the centralized SCSS theme for "Void Black" backgrounds and "Neon" accents, maintaining a consistent 12x8 grid layout.
+*   **Mock/Real Backend Desync (Data Visibility)**
+    *   **Context:** Frontend displays data (draws, tickets) that doesn't match what's in the SQLite database. New records created through the UI don't appear in the database file.
+    *   **Resolution:** This occurs when `npm run dev` is used instead of `python main.py`. The mock backend (`getAPI()` in `bridge.ts` with no `window.pywebview.api`) uses in-memory arrays that never touch SQLite. Always run the desktop app via `python main.py` when database persistence is required. The mock is for UI development only. A red "MOCK MODE" banner now appears at the top of the app when the mock backend is active, and the mock starts with an empty data set to avoid false impressions of pre-existing records. The `api_mode()` method can be used to programmatically check which backend is active (`'mock'` vs `'pywebview'`).
 *   **Animation Namespace Collision**
     *   **Context:** Attempting to invoke a CSS `@keyframes` animation or utility class via `@include` (Sass mixin syntax), causing compilation failure.
     *   **Resolution:** Maintain a strict separation in the SCSS architecture: `@keyframes` and utility classes (`.pulse-hologram`, `.digital-ping`) belong to the CSS cascade and are consumed via `animation:` properties or class names. Reusable logic blocks (`glass-panel`, `corner-accent`) belong to mixins and are consumed via `@include`. Never cross the streams — if it's defined with `@keyframes` or `.class`, it's not a mixin.

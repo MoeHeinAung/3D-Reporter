@@ -75,3 +75,14 @@ This document records every error encountered during development, organized chro
 - **Root Cause:** The Python API method `get_uptime_seconds` returns `round(time.time() - self._start_time, 1)` which is a Python `float`. pywebview's JS-side `_checkValue` deserializer tracks promise results on an internal registry object. Certain Python `float` values pass through a serialization path where the registry object is not yet initialized, causing the `Cannot set properties of undefined` error.
 - **Resolution:** Changed return type from `float` to `int` using `int(time.time() - self._start_time)`. The frontend already applies `Math.floor()` in `formatUptime()`, so sub-second precision was never needed. Python `int` serializes cleanly through pywebview's bridge as a JS `number`.
 - **Files:** `backend/api.py`
+
+### INC-011: Frontend shows mock data despite real database having different records
+
+- **Symptom:** Frontend displays 5 draws, database only has 1. Blacklist tickets created via UI don't appear in the SQLite database. Frontend and database are completely out of sync.
+- **Root Cause:** The `getAPI()` function in `frontend/src/api/bridge.ts` falls back to a mock backend when `window.pywebview.api` is not available (i.e., when running `npm run dev` in a browser instead of via `python main.py`). The mock had 5 hardcoded pre-populated draws and in-memory-only ticket storage arrays. Nothing persisted to disk. The user was inspecting the real SQLite database while the frontend was operating against the mock.
+- **Resolution:**
+  - Cleared pre-populated mock draws (`_mockDraws: []`, `_nextDrawId: 1`) so the mock starts empty like a fresh database.
+  - Added `api_mode()` method to both the Python API (`return "pywebview"`) and the mock (`return "mock"`). The React `App.tsx` now calls `api.api_mode()` on mount and renders a red banner: `MOCK MODE — Data is in-memory only. Run python main.py for real database.` when the mock is active.
+  - Updated the mock's lifecycle methods (`open_draw`, `close_draw`, `settle_draw`, `get_open_draw`) to properly read/write the shared `_mockDraws` array, so CRUD operations work within a mock session.
+  - Added `IntegrityError` handling in `_with_session()` to return user-friendly messages for duplicate blacklist/winning ticket creation instead of a generic "internal error."
+- **Files:** `frontend/src/api/bridge.ts`, `frontend/src/App.tsx`, `frontend/src/styles/components/_navbar.scss`, `backend/api.py`

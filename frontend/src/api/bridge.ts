@@ -5,7 +5,17 @@
  * This module provides typed access and a mock fallback for browser dev.
  */
 
-import type { OpenDrawInfo, RiskTelemetry, SystemInfo, DrawResult, SaleResult, ApiError } from '../types'
+import type {
+  OpenDrawInfo,
+  RiskTelemetry,
+  SystemInfo,
+  DrawResult,
+  SaleResult,
+  ApiError,
+  BlacklistTicketResult,
+  WinningTicketResult,
+  DeleteResult,
+} from '../types'
 
 // ---------------------------------------------------------------------------
 // pywebview JS API type
@@ -23,8 +33,32 @@ interface PywebviewAPI {
   settle_draw(draw_id: number): Promise<DrawResult | ApiError>
   get_open_draw(): Promise<OpenDrawInfo | null | ApiError>
   record_sale(draw_id: number, agent_id: string, batch_id: number, ticket: string, amount: number, note?: string): Promise<SaleResult | ApiError>
+  get_all_draws(): Promise<OpenDrawInfo[] | ApiError>
+  get_draw(draw_id: number): Promise<OpenDrawInfo | ApiError>
+  update_draw(draw_id: number, open_date?: string, cutoff_time?: string, house_holding_amount?: number, note?: string): Promise<DrawResult | ApiError>
+  delete_draw(draw_id: number): Promise<DeleteResult | ApiError>
+  get_blacklist_tickets(draw_id: number): Promise<BlacklistTicketResult[] | ApiError>
+  create_blacklist_ticket(draw_id: number, ticket: string, ticket_type: string): Promise<BlacklistTicketResult | ApiError>
+  delete_blacklist_ticket(ticket_id: number): Promise<DeleteResult | ApiError>
+  get_winning_tickets(draw_id: number): Promise<WinningTicketResult[] | ApiError>
+  create_winning_ticket(draw_id: number, ticket: string, ticket_type: string): Promise<WinningTicketResult | ApiError>
+  delete_winning_ticket(ticket_id: number): Promise<DeleteResult | ApiError>
   echo(message: string): Promise<string>
   ping(): Promise<string>
+  api_mode(): Promise<string>
+}
+
+// ---------------------------------------------------------------------------
+// Mock state — shared mutable store for browser-based dev
+// ---------------------------------------------------------------------------
+
+interface MockState {
+  _mockDraws: OpenDrawInfo[]
+  _nextDrawId: number
+  _nextBlacklistId: number
+  _nextWinningId: number
+  _mockBlacklist: Array<{ id: number; drawId: number; ticket: string; type: string }>
+  _mockWinnings: Array<{ id: number; drawId: number; ticket: string; type: string }>
 }
 
 // ---------------------------------------------------------------------------
@@ -75,26 +109,115 @@ function getAPI(): PywebviewAPI {
     async set_theme_preference() {
       return true
     },
-    async open_draw() {
-      return { id: 1, status: 'OPEN' }
+    async open_draw(this: MockState, open_date: string, cutoff_time: string, house_holding_amount?: number, note?: string) {
+      const hasOpen = this._mockDraws.find((d) => d.status === 'OPEN')
+      if (hasOpen) {
+        return { error: `Cannot open a new draw: draw ${hasOpen.id} is already OPEN.` }
+      }
+      const hasClosed = this._mockDraws.find((d) => d.status === 'CLOSED')
+      if (hasClosed) {
+        return { error: `Cannot open a new draw: draw ${hasClosed.id} must be SETTLED before opening a new draw.` }
+      }
+      const entry: OpenDrawInfo = {
+        id: this._nextDrawId++,
+        openDate: open_date,
+        cutoffTime: cutoff_time,
+        status: 'OPEN',
+        houseHoldingAmount: house_holding_amount ?? 0,
+        note: note ?? null,
+      }
+      this._mockDraws.push(entry)
+      return { id: entry.id, status: entry.status }
     },
-    async close_draw() {
-      return { id: 1, status: 'CLOSED' }
+    async close_draw(this: MockState, draw_id: number) {
+      const d = this._mockDraws.find((x) => x.id === draw_id)
+      if (!d) return { error: `Draw ${draw_id} not found.` }
+      if (d.status !== 'OPEN') return { error: `Cannot close draw ${draw_id}: status is ${d.status}.` }
+      d.status = 'CLOSED'
+      return { id: d.id, status: d.status }
     },
-    async settle_draw() {
-      return { id: 1, status: 'SETTLED' }
+    async settle_draw(this: MockState, draw_id: number) {
+      const d = this._mockDraws.find((x) => x.id === draw_id)
+      if (!d) return { error: `Draw ${draw_id} not found.` }
+      if (d.status !== 'CLOSED') return { error: `Cannot settle draw ${draw_id}: status is ${d.status}.` }
+      d.status = 'SETTLED'
+      return { id: d.id, status: d.status }
     },
-    async get_open_draw() {
-      return null
+    async get_open_draw(this: MockState) {
+      const d = this._mockDraws.find((x) => x.status === 'OPEN')
+      return d ?? null
     },
     async record_sale() {
       return { id: 1, ticket: '123', amount: 100 }
     },
+
+    // -- Draw CRUD --
+    _mockDraws: [] as OpenDrawInfo[],
+    _nextDrawId: 1,
+    _nextBlacklistId: 1,
+    _nextWinningId: 1,
+    _mockBlacklist: [] as Array<{ id: number; drawId: number; ticket: string; type: string }>,
+    _mockWinnings: [] as Array<{ id: number; drawId: number; ticket: string; type: string }>,
+
+    async get_all_draws(this: MockState) {
+      return [...this._mockDraws].reverse()
+    },
+    async get_draw(this: MockState, draw_id: number) {
+      const d = this._mockDraws.find((x) => x.id === draw_id)
+      return d ?? { error: `Draw ${draw_id} not found.` }
+    },
+    async update_draw(this: MockState, draw_id: number, open_date?: string, cutoff_time?: string, house_holding_amount?: number, note?: string) {
+      const d = this._mockDraws.find((x) => x.id === draw_id)
+      if (!d) return { error: `Draw ${draw_id} not found.` }
+      if (open_date !== undefined && open_date !== null) d.openDate = open_date
+      if (cutoff_time !== undefined && cutoff_time !== null) d.cutoffTime = cutoff_time
+      if (house_holding_amount !== undefined && house_holding_amount !== null) d.houseHoldingAmount = house_holding_amount
+      if (note !== undefined) d.note = note
+      return { id: d.id, status: d.status }
+    },
+    async delete_draw(this: MockState, draw_id: number) {
+      const idx = this._mockDraws.findIndex((x) => x.id === draw_id)
+      if (idx === -1) return { error: `Draw ${draw_id} not found.` }
+      this._mockDraws.splice(idx, 1)
+      return { ok: true }
+    },
+    async get_blacklist_tickets(this: MockState, draw_id: number) {
+      return this._mockBlacklist.filter((t) => t.drawId === draw_id)
+    },
+    async create_blacklist_ticket(this: MockState, draw_id: number, ticket: string, ticket_type: string) {
+      const entry = { id: this._nextBlacklistId++, drawId: draw_id, ticket, type: ticket_type }
+      this._mockBlacklist.push(entry)
+      return { id: entry.id, ticket: entry.ticket, type: entry.type }
+    },
+    async delete_blacklist_ticket(this: MockState, ticket_id: number) {
+      const idx = this._mockBlacklist.findIndex((t) => t.id === ticket_id)
+      if (idx === -1) return { error: `Blacklist ticket ${ticket_id} not found.` }
+      this._mockBlacklist.splice(idx, 1)
+      return { ok: true }
+    },
+    async get_winning_tickets(this: MockState, draw_id: number) {
+      return this._mockWinnings.filter((t) => t.drawId === draw_id)
+    },
+    async create_winning_ticket(this: MockState, draw_id: number, ticket: string, ticket_type: string) {
+      const entry = { id: this._nextWinningId++, drawId: draw_id, ticket, type: ticket_type }
+      this._mockWinnings.push(entry)
+      return { id: entry.id, ticket: entry.ticket, type: entry.type }
+    },
+    async delete_winning_ticket(this: MockState, ticket_id: number) {
+      const idx = this._mockWinnings.findIndex((t) => t.id === ticket_id)
+      if (idx === -1) return { error: `Winning ticket ${ticket_id} not found.` }
+      this._mockWinnings.splice(idx, 1)
+      return { ok: true }
+    },
+
     async echo(message: string) {
       return `[mock-backend] ${message}`
     },
     async ping() {
       return 'pong'
+    },
+    async api_mode() {
+      return 'mock'
     },
   }
 }

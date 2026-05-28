@@ -15,13 +15,17 @@ import logging
 import time
 from typing import Any, Callable
 
+from sqlalchemy.exc import IntegrityError
+
 from backend.database.connection import get_session
 from backend.errors import AppError
+from backend.services.blacklist_service import BlacklistService
 from backend.services.draw_service import DrawService
 from backend.services.risk_service import RiskService
 from backend.services.sales_service import SalesService
 from backend.services.system_service import SystemService
 from backend.services.theme_service import ThemeService
+from backend.services.winning_service import WinningService
 
 logger = logging.getLogger(__name__)
 
@@ -108,6 +112,103 @@ class API:
         return self._with_session(_do)
 
     # ------------------------------------------------------------------
+    # Draw CRUD
+    # ------------------------------------------------------------------
+
+    def get_all_draws(self) -> list[dict[str, Any]]:
+        def _do(s: Any) -> list[dict[str, Any]]:
+            draws = DrawService(s).get_all_draws()
+            return [
+                {
+                    "id": d.id,
+                    "openDate": d.open_date,
+                    "cutoffTime": d.cutoff_time,
+                    "status": d.status,
+                    "houseHoldingAmount": d.house_holding_amount,
+                    "note": d.note,
+                }
+                for d in draws
+            ]
+        return self._with_session(_do)
+
+    def get_draw(self, draw_id: int) -> dict[str, Any]:
+        def _do(s: Any) -> dict[str, Any]:
+            draw = DrawService(s).get_draw(draw_id)
+            if draw is None:
+                return {"error": f"Draw {draw_id} not found."}
+            return {
+                "id": draw.id,
+                "openDate": draw.open_date,
+                "cutoffTime": draw.cutoff_time,
+                "status": draw.status,
+                "houseHoldingAmount": draw.house_holding_amount,
+                "note": draw.note,
+            }
+        return self._with_session(_do)
+
+    def update_draw(self, draw_id: int, open_date: str | None = None, cutoff_time: str | None = None, house_holding_amount: int | None = None, note: str | None = None) -> dict[str, Any]:
+        def _do(s: Any) -> dict[str, Any]:
+            draw = DrawService(s).update_draw(draw_id, open_date, cutoff_time, house_holding_amount, note)
+            return {"id": draw.id, "status": draw.status}
+        return self._with_session(_do)
+
+    def delete_draw(self, draw_id: int) -> dict[str, Any]:
+        def _do(s: Any) -> dict[str, Any]:
+            DrawService(s).delete_draw(draw_id)
+            return {"ok": True}
+        return self._with_session(_do)
+
+    # ------------------------------------------------------------------
+    # Blacklist Tickets
+    # ------------------------------------------------------------------
+
+    def get_blacklist_tickets(self, draw_id: int) -> list[dict[str, Any]]:
+        def _do(s: Any) -> list[dict[str, Any]]:
+            tickets = BlacklistService(s).get_by_draw(draw_id)
+            return [
+                {"id": t.id, "drawId": t.draw_id, "ticket": t.ticket, "type": t.type}
+                for t in tickets
+            ]
+        return self._with_session(_do)
+
+    def create_blacklist_ticket(self, draw_id: int, ticket: str, ticket_type: str) -> dict[str, Any]:
+        def _do(s: Any) -> dict[str, Any]:
+            t = BlacklistService(s).create(draw_id, ticket, ticket_type)
+            return {"id": t.id, "ticket": t.ticket, "type": t.type}
+        return self._with_session(_do)
+
+    def delete_blacklist_ticket(self, ticket_id: int) -> dict[str, Any]:
+        def _do(s: Any) -> dict[str, Any]:
+            BlacklistService(s).delete(ticket_id)
+            return {"ok": True}
+        return self._with_session(_do)
+
+    # ------------------------------------------------------------------
+    # Winning Tickets
+    # ------------------------------------------------------------------
+
+    def get_winning_tickets(self, draw_id: int) -> list[dict[str, Any]]:
+        def _do(s: Any) -> list[dict[str, Any]]:
+            tickets = WinningService(s).get_by_draw(draw_id)
+            return [
+                {"id": t.id, "drawId": t.draw_id, "ticket": t.ticket, "type": t.type}
+                for t in tickets
+            ]
+        return self._with_session(_do)
+
+    def create_winning_ticket(self, draw_id: int, ticket: str, ticket_type: str) -> dict[str, Any]:
+        def _do(s: Any) -> dict[str, Any]:
+            t = WinningService(s).create(draw_id, ticket, ticket_type)
+            return {"id": t.id, "ticket": t.ticket, "type": t.type}
+        return self._with_session(_do)
+
+    def delete_winning_ticket(self, ticket_id: int) -> dict[str, Any]:
+        def _do(s: Any) -> dict[str, Any]:
+            WinningService(s).delete(ticket_id)
+            return {"ok": True}
+        return self._with_session(_do)
+
+    # ------------------------------------------------------------------
     # Sales
     # ------------------------------------------------------------------
 
@@ -128,6 +229,9 @@ class API:
 
     def ping(self) -> str:
         return "pong"
+
+    def api_mode(self) -> str:
+        return "pywebview"
 
     # ------------------------------------------------------------------
     # Session helper
@@ -150,6 +254,10 @@ class API:
             session.rollback()
             logger.warning("Application error: %s", exc.message)
             return {"error": exc.message, "details": exc.details}
+        except IntegrityError:
+            session.rollback()
+            logger.exception("Database integrity error")
+            return {"error": "A record with that data already exists."}
         except Exception:
             session.rollback()
             logger.exception("Unhandled error in API call")

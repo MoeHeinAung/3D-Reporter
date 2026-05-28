@@ -71,3 +71,47 @@ This document records feature implementations and significant structural changes
   - **Documentation (3 files):** `ARCHITECTURE.md` (layer diagram, data flow, design decisions, database schema), `CODING_STANDARDS.md` (Python, TypeScript, SCSS, testing, Git conventions), `CLAUDE.md` updated with architecture rules, layer constraints, and commands.
   - **Tests (8 files):** `tests/conftest.py` (in-memory SQLite fixtures), `test_models.py`, `test_repositories/test_base.py`, `test_services/test_system_service.py`, `test_services/test_theme_service.py`. `requirements.txt` updated with pytest, pytest-cov.
 - **Files:** 35 created, 9 modified, 0 deleted. See `ARCHITECTURE.md` and `CODING_STANDARDS.md` for the full reference.
+
+## 2026-05-28 — Draw Page Implementation
+
+### IMPL-006: Draw Management Page with Split-Panel Layout
+
+- **Rationale:** The Draws page was a placeholder ("coming soon"). It needed full CRUD capability for draws and management of associated blacklist/winning tickets, laid out according to the grid reference coordinates (Column 4/13, Row 1/5 for the main draw table; Column 4/13, Row 5/8 for ticket management).
+- **Changes:**
+  - **`pages/Draws.tsx`:** Complete rewrite — split-panel layout with clickable draw list (Column A), detailed summary view (Column B), "Insert New Draw" button opening a modal form with fields for openDate, cutoffTime, houseHoldingAmount, and note. Dedicated Edit and Delete actions per draw item (later refined to SVG icon buttons). Ticket management section with tabbed interface toggling between blacklist and winning ticket tables, each with create/delete capability via modals.
+  - **`styles/components/_draws.scss` (new):** Styles for split layout (`.draws__split`, `.draws__list`, `.draws__summary`), list items with active/hover states, status badges (OPEN/CLOSED/SETTLED with distinct colors), tab menu (`.draws__tabs`, `.draws__tab`), ticket table (`.draws__ticket-table`), modal overlay + dialog (`.modal-overlay`, `.modal`), icon buttons (`.icon-btn` with hover glow effects), spinner animation (`@keyframes spin`), and state placeholders for loading/error/empty.
+  - **Backend — `services/blacklist_service.py` (new):** Blacklist ticket management with type validation (HALF/BLOCK), create, get_by_draw, and delete operations.
+  - **Backend — `services/winning_service.py` (new):** Winning ticket management with type validation (Jackpot/Minor), create, get_by_draw, and delete operations.
+  - **Backend — `services/draw_service.py`:** Extended with `get_all_draws()`, `update_draw()`, and `delete_draw()` methods.
+  - **Backend — `repositories/draw_repository.py`:** Added `has_pending_closed()` query method.
+  - **Backend — `api.py`:** Added 12 new API endpoints: `get_all_draws`, `get_draw`, `update_draw`, `delete_draw`, `get_blacklist_tickets`, `create_blacklist_ticket`, `delete_blacklist_ticket`, `get_winning_tickets`, `create_winning_ticket`, `delete_winning_ticket`, plus `api_mode` for backend detection.
+  - **Frontend — `api/bridge.ts`:** Added 12 new typed bridge methods with a shared `MockState` interface for the in-memory mock backend.
+  - **Frontend — `types/api.ts`:** Added `BlacklistTicketResult`, `WinningTicketResult`, `DeleteResult` types.
+- **Files:** `frontend/src/pages/Draws.tsx` (rewrite), `frontend/src/styles/components/_draws.scss` (new), `frontend/src/styles/main.scss` (updated), `backend/services/blacklist_service.py` (new), `backend/services/winning_service.py` (new), `backend/services/draw_service.py`, `backend/repositories/draw_repository.py`, `backend/api.py`, `frontend/src/api/bridge.ts`, `frontend/src/types/api.ts`
+
+### IMPL-007: Single-Open-Draw Business Constraint
+
+- **Rationale:** The draw lifecycle already enforced only one OPEN draw at a time, but allowed CLOSED (unsettled) draws to accumulate. The business rule requires all non-OPEN draws to be fully SETTLED before a new draw can be opened. This prevents orphaned CLOSED draws from piling up without settlement.
+- **Changes:**
+  - **`services/draw_service.py`:** `open_draw()` now checks `has_pending_closed()` after the existing OPEN-draw guard. If any CLOSED draw exists, it raises a `ConflictError`: "Cannot open a new draw: one or more draws are CLOSED but not yet SETTLED. Settle all CLOSED draws before opening a new one."
+  - **`repositories/draw_repository.py`:** Added `has_pending_closed()` — returns `True` if any row has `status = 'CLOSED'`.
+  - **Mock backend:** `open_draw()` mock mirrors the constraint, checking for both existing OPEN and pending CLOSED draws before allowing creation.
+- **Files:** `backend/services/draw_service.py`, `backend/repositories/draw_repository.py`, `frontend/src/api/bridge.ts`
+
+### IMPL-008: UI Refinement — Icon Buttons & Aesthetic Enhancement
+
+- **Rationale:** Replace textual "Edit" and "Delete" buttons with minimal SVG icon buttons to match the futuristic HUD aesthetic. Enhance overall polish while preserving the existing glassmorphism card design, color palette, and 12×8 grid layout.
+- **Changes:**
+  - **`pages/Draws.tsx`:** Replaced all `<button>Edit</button>` / `<button>Delete</button>` text buttons with `<button class="icon-btn"><EditIcon/></button>` pattern. Added three inline SVG icon components: `EditIcon` (pencil), `DeleteIcon` (trash), `CloseIcon` (X). Updated draw list items with a two-line info layout (date + cutoff time). Added summary header with title + large status badge. Shortened tab labels ("Blacklist Ticket Table" → "Blacklist Tickets"). Added Retry button on error states. Added `selectedDrawId` sync effect to auto-select first draw after deletion.
+  - **`styles/components/_draws.scss`:** Added `.icon-btn` styles (30×30px, transparent bg, hover glow with primary/danger color variants), `.icon-btn__svg` (14×14px, pointer-events none), `.draws__spinner` (20px rotating border spinner), `.draws__summary-header` (title + badge flex row), `.draws__list-item-info` (stacked date + cutoff), `.draws__badge--lg` (larger badge variant). Enhanced badge backgrounds with translucent color tints. Improved tab hover states and border transitions.
+  - **`styles/components/_navbar.scss`:** Added `.mock-banner` styles for the mock mode indicator banner (red-tinted background, monospace code element).
+- **Files:** `frontend/src/pages/Draws.tsx`, `frontend/src/styles/components/_draws.scss`, `frontend/src/styles/components/_navbar.scss`
+
+### IMPL-009: Mock Backend Transparency & Sync Fix
+
+- **Rationale:** Users running `npm run dev` for frontend development were confused by mock data (5 hardcoded draws) not matching the real SQLite database (1 draw). Blacklist tickets created via the UI appeared to succeed but never persisted to disk. The mock needed to be transparent about its nature and start in a fresh state.
+- **Changes:**
+  - **`api/bridge.ts`:** Cleared `_mockDraws` to `[]` and reset `_nextDrawId` to `1`. Added `api_mode()` method returning `'mock'`. Defined shared `MockState` interface for all mock `this` types. Fixed `open_draw` mock to push to `_mockDraws` and enforce business constraints. Fixed `close_draw`/`settle_draw` to mutate status in-place. Fixed `get_open_draw` to search the live array.
+  - **`App.tsx`:** Added `apiMode` state, calls `api.api_mode()` on mount, renders `.mock-banner` when mode is `'mock'`.
+  - **`api.py`:** Added `api_mode()` returning `'pywebview'`. Added `IntegrityError` catch in `_with_session()` returning "A record with that data already exists."
+- **Files:** `frontend/src/api/bridge.ts`, `frontend/src/App.tsx`, `frontend/src/styles/components/_navbar.scss`, `backend/api.py`

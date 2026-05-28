@@ -19,3 +19,7 @@ class DrawRepository(BaseRepository[Draw]):
     def get_by_status(self, status: str) -> list[Draw]:
         """Return all draws with the given status."""
         return list(self.session.query(Draw).filter(Draw.status == status).all())
+
+    def has_pending_closed(self) -> bool:
+        """Return True if any draws are in CLOSED status (not yet settled)."""
+        return self.session.query(Draw).filter(Draw.status == "CLOSED").first() is not None

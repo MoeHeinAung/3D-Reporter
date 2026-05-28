@@ -51,6 +51,22 @@ export interface ApiError {
 /** Discriminated result: either success data or an error. */
 export type ApiResult<T> = T | ApiError
 
+export interface BlacklistTicketResult {
+  id: number
+  ticket: string
+  type: string
+}
+
+export interface WinningTicketResult {
+  id: number
+  ticket: string
+  type: string
+}
+
+export interface DeleteResult {
+  ok: boolean
+}
+
 /** Type guard: true if the result is an ApiError. */
 export function isApiError(result: unknown): result is ApiError {
   return typeof result === 'object' && result !== null && 'error' in result

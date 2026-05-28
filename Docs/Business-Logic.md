@@ -75,3 +75,13 @@ This document captures business logic, domain rules, constraints, and core ideas
   - **Timestamp convention:** All `created_at` columns use `TEXT NOT NULL DEFAULT (datetime('now'))`, storing ISO-8601 UTC strings. This is the recommended SQLite approach over INTEGER Unix timestamps for human-readability.
   - **Unique constraints prevent duplicate classifications:** `blacklist_tickets` and `winning_tickets` have `UNIQUE(draw_id, ticket, type)`, preventing the same ticket from being blacklisted with the same type twice or winning in the same category twice within a draw.
 - **Affects:** `backend/schema.sql`.
+
+## 2026-05-28 — Single-Open-Draw with Mandatory Settlement Constraint
+
+- **Source:** User-directed business rule enforcement during Draw page implementation.
+- **Logic:**
+  - At any given time, only **one draw** may be in the `OPEN` status. This was already enforced in the service layer.
+  - Additionally, **all other draws must be in `SETTLED` status** before a new draw can be opened. Specifically, no draw may be left in `CLOSED` status when opening a new draw. This prevents the accumulation of unsettled draws and enforces a strict lifecycle: `OPEN → CLOSED → SETTLED` with no ability to "skip" settlement.
+  - The constraint is enforced in `DrawService.open_draw()` via `DrawRepository.has_pending_closed()`, which checks for any row with `status = 'CLOSED'`. If any exist, a `ConflictError` is raised.
+  - The mock backend in `bridge.ts` mirrors this constraint for consistent behavior during frontend development.
+- **Affects:** `backend/services/draw_service.py`, `backend/repositories/draw_repository.py`, `frontend/src/api/bridge.ts`.

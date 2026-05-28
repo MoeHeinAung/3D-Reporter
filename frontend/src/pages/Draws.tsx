@@ -1,12 +1,633 @@
-export default function Draws() {
+import { useCallback, useEffect, useState } from 'react'
+import { api } from '../api/bridge'
+import { isApiError } from '../types'
+import type { OpenDrawInfo, BlacklistTicketResult, WinningTicketResult } from '../types'
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+type TicketTab = 'blacklist' | 'winning'
+
+interface DrawFormData {
+  openDate: string
+  cutoffTime: string
+  houseHoldingAmount: number
+  note: string
+}
+
+const EMPTY_FORM: DrawFormData = {
+  openDate: new Date().toISOString().slice(0, 10),
+  cutoffTime: '14:00',
+  houseHoldingAmount: 0,
+  note: '',
+}
+
+// ---------------------------------------------------------------------------
+// Inline SVG Icons
+// ---------------------------------------------------------------------------
+
+function EditIcon() {
   return (
-    <div className="card" style={{ gridColumn: 'span 12', gridRow: 'span 8', zIndex: 1, position: 'relative' }}>
-      <div className="card__header">Draws</div>
-      <div className="card__body">
-        <div className="text-muted" style={{ display: 'grid', placeItems: 'center', height: '100%' }}>
-          Draws management — coming soon
+    <svg
+      className="icon-btn__svg"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M11.5 2.5l2 2L5 13H3v-2L11.5 2.5z" />
+      <path d="M10 4l2 2" />
+    </svg>
+  )
+}
+
+function DeleteIcon() {
+  return (
+    <svg
+      className="icon-btn__svg"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M2 4h12" />
+      <path d="M5.5 4V3a1 1 0 011-1h3a1 1 0 011 1v1" />
+      <path d="M12.5 4v9a1 1 0 01-1 1h-7a1 1 0 01-1-1V4" />
+      <path d="M6 7v5" />
+      <path d="M10 7v5" />
+    </svg>
+  )
+}
+
+function CloseIcon() {
+  return (
+    <svg
+      className="icon-btn__svg"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+    >
+      <path d="M3 3l10 10M13 3L3 13" />
+    </svg>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Draws Page
+// ---------------------------------------------------------------------------
+
+export default function Draws() {
+  // -- draws state --
+  const [draws, setDraws] = useState<OpenDrawInfo[]>([])
+  const [drawsLoading, setDrawsLoading] = useState(true)
+  const [drawsError, setDrawsError] = useState<string | null>(null)
+  const [selectedDrawId, setSelectedDrawId] = useState<number | null>(null)
+
+  // -- draw modal state --
+  const [drawModalOpen, setDrawModalOpen] = useState(false)
+  const [drawFormMode, setDrawFormMode] = useState<'insert' | 'edit'>('insert')
+  const [drawForm, setDrawForm] = useState<DrawFormData>(EMPTY_FORM)
+  const [drawFormSubmitting, setDrawFormSubmitting] = useState(false)
+  const [editingDrawId, setEditingDrawId] = useState<number | null>(null)
+
+  // -- ticket tabs / state --
+  const [ticketTab, setTicketTab] = useState<TicketTab>('blacklist')
+  const [blacklistTickets, setBlacklistTickets] = useState<BlacklistTicketResult[]>([])
+  const [winningTickets, setWinningTickets] = useState<WinningTicketResult[]>([])
+  const [ticketsLoading, setTicketsLoading] = useState(false)
+  const [ticketsError, setTicketsError] = useState<string | null>(null)
+
+  // -- ticket modal state --
+  const [ticketModalOpen, setTicketModalOpen] = useState(false)
+  const [ticketForm, setTicketForm] = useState({ ticket: '', type: 'HALF' })
+  const [ticketFormSubmitting, setTicketFormSubmitting] = useState(false)
+
+  // ---- Fetch draws ----
+
+  const fetchDraws = useCallback(async () => {
+    setDrawsLoading(true)
+    setDrawsError(null)
+    const result = await api.get_all_draws()
+    if (isApiError(result)) {
+      setDrawsError(result.error)
+    } else {
+      setDraws(result)
+      if (result.length > 0 && selectedDrawId === null) {
+        setSelectedDrawId(result[0].id)
+      }
+    }
+    setDrawsLoading(false)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    fetchDraws()
+  }, [fetchDraws])
+
+  // Keep selectedDrawId in sync when draws list changes (e.g. after delete)
+  useEffect(() => {
+    if (selectedDrawId !== null && draws.length > 0 && !draws.find((d) => d.id === selectedDrawId)) {
+      setSelectedDrawId(draws[0].id)
+    }
+    if (draws.length === 0) {
+      setSelectedDrawId(null)
+    }
+  }, [draws, selectedDrawId])
+
+  // ---- Fetch tickets for selected draw ----
+
+  const fetchTickets = useCallback(async (drawId: number) => {
+    setTicketsLoading(true)
+    setTicketsError(null)
+    const [blResult, wlResult] = await Promise.all([
+      api.get_blacklist_tickets(drawId),
+      api.get_winning_tickets(drawId),
+    ])
+    if (isApiError(blResult)) {
+      setTicketsError(blResult.error)
+    } else {
+      setBlacklistTickets(blResult)
+    }
+    if (isApiError(wlResult)) {
+      setTicketsError((prev) => prev ?? wlResult.error)
+    } else {
+      setWinningTickets(wlResult)
+    }
+    setTicketsLoading(false)
+  }, [])
+
+  useEffect(() => {
+    if (selectedDrawId !== null) {
+      fetchTickets(selectedDrawId)
+    }
+  }, [selectedDrawId, fetchTickets])
+
+  // ---- Selected draw ----
+
+  const selectedDraw = draws.find((d) => d.id === selectedDrawId) ?? null
+
+  // ---- Draw modal handlers ----
+
+  const openInsertModal = () => {
+    setDrawFormMode('insert')
+    setDrawForm(EMPTY_FORM)
+    setEditingDrawId(null)
+    setDrawModalOpen(true)
+  }
+
+  const openEditModal = (draw: OpenDrawInfo) => {
+    setDrawFormMode('edit')
+    setDrawForm({
+      openDate: draw.openDate,
+      cutoffTime: draw.cutoffTime,
+      houseHoldingAmount: draw.houseHoldingAmount,
+      note: draw.note ?? '',
+    })
+    setEditingDrawId(draw.id)
+    setDrawModalOpen(true)
+  }
+
+  const closeDrawModal = () => {
+    setDrawModalOpen(false)
+    setDrawFormSubmitting(false)
+  }
+
+  const submitDrawForm = async () => {
+    setDrawFormSubmitting(true)
+    const { openDate, cutoffTime, houseHoldingAmount, note } = drawForm
+    if (drawFormMode === 'insert') {
+      const result = await api.open_draw(openDate, cutoffTime, houseHoldingAmount, note || undefined)
+      if (isApiError(result)) {
+        setDrawsError(result.error)
+        setDrawFormSubmitting(false)
+        return
+      }
+      closeDrawModal()
+      await fetchDraws()
+    } else if (editingDrawId !== null) {
+      const result = await api.update_draw(editingDrawId, openDate, cutoffTime, houseHoldingAmount, note || null)
+      if (isApiError(result)) {
+        setDrawsError(result.error)
+        setDrawFormSubmitting(false)
+        return
+      }
+      closeDrawModal()
+      await fetchDraws()
+    }
+    setDrawFormSubmitting(false)
+  }
+
+  const handleDeleteDraw = async (drawId: number) => {
+    const result = await api.delete_draw(drawId)
+    if (isApiError(result)) {
+      setDrawsError(result.error)
+    } else {
+      await fetchDraws()
+    }
+  }
+
+  // ---- Ticket modal handlers ----
+
+  const openTicketModal = () => {
+    setTicketForm({ ticket: '', type: ticketTab === 'blacklist' ? 'HALF' : 'Jackpot' })
+    setTicketModalOpen(true)
+  }
+
+  const closeTicketModal = () => {
+    setTicketModalOpen(false)
+    setTicketFormSubmitting(false)
+  }
+
+  const submitTicketForm = async () => {
+    if (!selectedDrawId) return
+    setTicketFormSubmitting(true)
+    if (ticketTab === 'blacklist') {
+      const result = await api.create_blacklist_ticket(selectedDrawId, ticketForm.ticket, ticketForm.type)
+      if (isApiError(result)) {
+        setTicketsError(result.error)
+        setTicketFormSubmitting(false)
+        return
+      }
+      closeTicketModal()
+      await fetchTickets(selectedDrawId)
+    } else {
+      const result = await api.create_winning_ticket(selectedDrawId, ticketForm.ticket, ticketForm.type)
+      if (isApiError(result)) {
+        setTicketsError(result.error)
+        setTicketFormSubmitting(false)
+        return
+      }
+      closeTicketModal()
+      await fetchTickets(selectedDrawId)
+    }
+    setTicketFormSubmitting(false)
+  }
+
+  const handleDeleteTicket = async (ticketId: number) => {
+    const result =
+      ticketTab === 'blacklist'
+        ? await api.delete_blacklist_ticket(ticketId)
+        : await api.delete_winning_ticket(ticketId)
+    if (isApiError(result)) {
+      setTicketsError(result.error)
+    } else if (selectedDrawId) {
+      await fetchTickets(selectedDrawId)
+    }
+  }
+
+  // ---- Render ----
+
+  return (
+    <>
+      {/* ================================================================
+          Main Draw Table — Column 4/13, Row 1/5
+          ================================================================ */}
+      <div
+        className="card"
+        style={{ gridColumn: '4 / 13', gridRow: '1 / 5', zIndex: 1, position: 'relative' }}
+      >
+        <div className="card__header">
+          <span>Draws</span>
+          <button className="btn btn--primary btn--sm" type="button" onClick={openInsertModal}>
+            + Insert New Draw
+          </button>
+        </div>
+        <div className="card__body" style={{ padding: 0 }}>
+          {drawsLoading ? (
+            <div className="draws__state">
+              <span className="draws__spinner" />
+              Loading draws...
+            </div>
+          ) : drawsError ? (
+            <div className="draws__state draws__state--error">
+              <span className="draws__state-icon">!</span>
+              {drawsError}
+              <button className="btn btn--sm" type="button" onClick={fetchDraws} style={{ marginTop: '0.5rem' }}>
+                Retry
+              </button>
+            </div>
+          ) : (
+            <div className="draws__split">
+              {/* ---- Column A: List View ---- */}
+              <div className="draws__list">
+                {draws.length === 0 ? (
+                  <div className="draws__state">No draws found.</div>
+                ) : (
+                  draws.map((draw) => (
+                    <div
+                      key={draw.id}
+                      className={`draws__list-item${draw.id === selectedDrawId ? ' draws__list-item--active' : ''}`}
+                      onClick={() => setSelectedDrawId(draw.id)}
+                    >
+                      <div className="draws__list-item-main">
+                        <span className="draws__list-item-id">#{draw.id}</span>
+                        <div className="draws__list-item-info">
+                          <span className="draws__list-item-date">{draw.openDate}</span>
+                          <span className="draws__list-item-cutoff">{draw.cutoffTime}</span>
+                        </div>
+                        <span className={`draws__badge draws__badge--${draw.status.toLowerCase()}`}>
+                          {draw.status}
+                        </span>
+                      </div>
+                      <div className="draws__list-item-actions">
+                        <button
+                          className="icon-btn"
+                          type="button"
+                          title="Edit draw"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            openEditModal(draw)
+                          }}
+                        >
+                          <EditIcon />
+                        </button>
+                        <button
+                          className="icon-btn icon-btn--danger"
+                          type="button"
+                          title="Delete draw"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleDeleteDraw(draw.id)
+                          }}
+                        >
+                          <DeleteIcon />
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {/* ---- Column B: Summary View ---- */}
+              <div className="draws__summary">
+                {selectedDraw ? (
+                  <>
+                    <div className="draws__summary-header">
+                      <span className="draws__summary-title">Draw #{selectedDraw.id}</span>
+                      <span className={`draws__badge draws__badge--${selectedDraw.status.toLowerCase()} draws__badge--lg`}>
+                        {selectedDraw.status}
+                      </span>
+                    </div>
+                    <dl className="draws__summary-dl">
+                      <div className="draws__summary-row">
+                        <dt>Open Date</dt>
+                        <dd>{selectedDraw.openDate}</dd>
+                      </div>
+                      <div className="draws__summary-row">
+                        <dt>Cutoff Time</dt>
+                        <dd>{selectedDraw.cutoffTime}</dd>
+                      </div>
+                      <div className="draws__summary-row">
+                        <dt>House Holding</dt>
+                        <dd className="telemetry">{selectedDraw.houseHoldingAmount.toLocaleString()}</dd>
+                      </div>
+                      <div className="draws__summary-row">
+                        <dt>Note</dt>
+                        <dd>{selectedDraw.note || <span className="text-muted">—</span>}</dd>
+                      </div>
+                    </dl>
+                  </>
+                ) : (
+                  <div className="draws__state">Select a draw to view details.</div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </div>
-    </div>
+
+      {/* ================================================================
+          Ticket Management Table — Column 4/13, Row 5/8
+          ================================================================ */}
+      <div
+        className="card"
+        style={{ gridColumn: '4 / 13', gridRow: '5 / 8', zIndex: 1, position: 'relative' }}
+      >
+        <div className="card__header">
+          <div className="draws__tabs">
+            <button
+              className={`draws__tab${ticketTab === 'blacklist' ? ' draws__tab--active' : ''}`}
+              type="button"
+              onClick={() => setTicketTab('blacklist')}
+            >
+              Blacklist Tickets
+            </button>
+            <button
+              className={`draws__tab${ticketTab === 'winning' ? ' draws__tab--active' : ''}`}
+              type="button"
+              onClick={() => setTicketTab('winning')}
+            >
+              Winning Tickets
+            </button>
+          </div>
+          <button
+            className="btn btn--primary btn--sm"
+            type="button"
+            onClick={openTicketModal}
+            disabled={!selectedDrawId}
+            title={!selectedDrawId ? 'Select a draw first' : undefined}
+          >
+            + {ticketTab === 'blacklist' ? 'Create Blacklist' : 'Create Winning'}
+          </button>
+        </div>
+        <div className="card__body" style={{ padding: 0 }}>
+          {!selectedDrawId ? (
+            <div className="draws__state">Select a draw above to manage its tickets.</div>
+          ) : ticketsLoading ? (
+            <div className="draws__state">
+              <span className="draws__spinner" />
+              Loading tickets...
+            </div>
+          ) : ticketsError ? (
+            <div className="draws__state draws__state--error">
+              <span className="draws__state-icon">!</span>
+              {ticketsError}
+            </div>
+          ) : (
+            <div className="draws__ticket-table-wrapper">
+              <table className="draws__ticket-table">
+                <thead>
+                  <tr>
+                    <th style={{ width: 60 }}>ID</th>
+                    <th>Ticket</th>
+                    <th>Type</th>
+                    <th style={{ width: 80 }} />
+                  </tr>
+                </thead>
+                <tbody>
+                  {(ticketTab === 'blacklist' ? blacklistTickets : winningTickets).map((t) => (
+                    <tr key={t.id}>
+                      <td className="text-muted">#{t.id}</td>
+                      <td className="telemetry">{t.ticket}</td>
+                      <td>
+                        <span className="draws__badge draws__badge--ticket">{t.type}</span>
+                      </td>
+                      <td>
+                        <button
+                          className="icon-btn icon-btn--danger"
+                          type="button"
+                          title={`Delete ${ticketTab === 'blacklist' ? 'blacklist' : 'winning'} ticket`}
+                          onClick={() => handleDeleteTicket(t.id)}
+                        >
+                          <DeleteIcon />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                  {(ticketTab === 'blacklist' ? blacklistTickets : winningTickets).length === 0 && (
+                    <tr>
+                      <td colSpan={4} className="draws__state" style={{ padding: 'var(--space-5)' }}>
+                        No {ticketTab === 'blacklist' ? 'blacklist' : 'winning'} tickets for this draw.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ================================================================
+          Draw Modal (Insert / Edit)
+          ================================================================ */}
+      {drawModalOpen && (
+        <div className="modal-overlay" onClick={closeDrawModal}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal__header">
+              <span>{drawFormMode === 'insert' ? 'Insert New Draw' : 'Edit Draw'}</span>
+              <button className="icon-btn" type="button" title="Close" onClick={closeDrawModal}>
+                <CloseIcon />
+              </button>
+            </div>
+            <div className="modal__body">
+              <label className="input-label">
+                Open Date
+                <input
+                  className="input"
+                  type="date"
+                  value={drawForm.openDate}
+                  onChange={(e) => setDrawForm((f) => ({ ...f, openDate: e.target.value }))}
+                />
+              </label>
+              <label className="input-label">
+                Cutoff Time
+                <input
+                  className="input"
+                  type="time"
+                  value={drawForm.cutoffTime}
+                  onChange={(e) => setDrawForm((f) => ({ ...f, cutoffTime: e.target.value }))}
+                />
+              </label>
+              <label className="input-label">
+                House Holding Amount
+                <input
+                  className="input"
+                  type="number"
+                  value={drawForm.houseHoldingAmount}
+                  onChange={(e) => setDrawForm((f) => ({ ...f, houseHoldingAmount: Number(e.target.value) }))}
+                />
+              </label>
+              <label className="input-label">
+                Note
+                <input
+                  className="input"
+                  type="text"
+                  value={drawForm.note}
+                  onChange={(e) => setDrawForm((f) => ({ ...f, note: e.target.value }))}
+                  placeholder="Optional note"
+                />
+              </label>
+            </div>
+            <div className="modal__footer">
+              <button className="btn" type="button" onClick={closeDrawModal}>
+                Cancel
+              </button>
+              <button
+                className="btn btn--primary"
+                type="button"
+                onClick={submitDrawForm}
+                disabled={drawFormSubmitting}
+              >
+                {drawFormSubmitting
+                  ? 'Saving...'
+                  : drawFormMode === 'insert'
+                    ? 'Create Draw'
+                    : 'Save Changes'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================================================================
+          Ticket Modal (Create Blacklist / Winning)
+          ================================================================ */}
+      {ticketModalOpen && (
+        <div className="modal-overlay" onClick={closeTicketModal}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal__header">
+              <span>
+                {ticketTab === 'blacklist' ? 'Create Blacklist Ticket' : 'Create Winning Ticket'}
+              </span>
+              <button className="icon-btn" type="button" title="Close" onClick={closeTicketModal}>
+                <CloseIcon />
+              </button>
+            </div>
+            <div className="modal__body">
+              <label className="input-label">
+                Ticket Number
+                <input
+                  className="input"
+                  type="text"
+                  value={ticketForm.ticket}
+                  onChange={(e) => setTicketForm((f) => ({ ...f, ticket: e.target.value }))}
+                  placeholder="e.g. 12345"
+                />
+              </label>
+              <label className="input-label">
+                Type
+                <select
+                  className="select"
+                  value={ticketForm.type}
+                  onChange={(e) => setTicketForm((f) => ({ ...f, type: e.target.value }))}
+                >
+                  {ticketTab === 'blacklist' ? (
+                    <>
+                      <option value="HALF">HALF</option>
+                      <option value="BLOCK">BLOCK</option>
+                    </>
+                  ) : (
+                    <>
+                      <option value="Jackpot">Jackpot</option>
+                      <option value="Minor">Minor</option>
+                    </>
+                  )}
+                </select>
+              </label>
+            </div>
+            <div className="modal__footer">
+              <button className="btn" type="button" onClick={closeTicketModal}>
+                Cancel
+              </button>
+              <button
+                className="btn btn--primary"
+                type="button"
+                onClick={submitTicketForm}
+                disabled={ticketFormSubmitting || !ticketForm.ticket.trim()}
+              >
+                {ticketFormSubmitting ? 'Saving...' : 'Create Ticket'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   )
 }
