@@ -1,7 +1,7 @@
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **3D-Reporter** (171 symbols, 208 relationships, 0 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **3D-Reporter** (1032 symbols, 1839 relationships, 48 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 
@@ -39,9 +39,6 @@ This project is indexed by GitNexus as **3D-Reporter** (171 symbols, 208 relatio
 | Rename / extract / split / refactor | `.claude/skills/gitnexus/gitnexus-refactoring/SKILL.md` |
 | Tools, resources, schema reference | `.claude/skills/gitnexus/gitnexus-guide/SKILL.md` |
 | Index, status, clean, wiki CLI commands | `.claude/skills/gitnexus/gitnexus-cli/SKILL.md` |
-| Work in the Api area (9 symbols) | `.claude/skills/generated/api/SKILL.md` |
-| Work in the Backend area (4 symbols) | `.claude/skills/generated/backend/SKILL.md` |
-| Work in the Cluster_5 area (3 symbols) | `.claude/skills/generated/cluster-5/SKILL.md` |
 
 <!-- gitnexus:end -->
 
