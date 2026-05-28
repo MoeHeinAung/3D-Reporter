@@ -1,12 +1,8 @@
-import { useEffect, useState } from 'react'
-import { api, type SystemInfo } from '../api/bridge'
+import { api } from '../api/bridge'
+import { useSystemInfo } from '../hooks/useSystemInfo'
 
 export default function Dashboard() {
-  const [systemInfo, setSystemInfo] = useState<SystemInfo | null>(null)
-
-  useEffect(() => {
-    api.get_system_info().then(setSystemInfo)
-  }, [])
+  const { data: systemInfo, loading } = useSystemInfo()
 
   return (
     <>
@@ -14,7 +10,9 @@ export default function Dashboard() {
       <div className="card" style={{ gridColumn: 'span 3', gridRow: 'span 4', zIndex: 1, position: 'relative' }}>
         <div className="card__header">System</div>
         <div className="card__body">
-          {systemInfo ? (
+          {loading ? (
+            <div className="scanline" style={{ height: 100 }} />
+          ) : systemInfo ? (
             <dl style={{ display: 'grid', gap: '0.5rem' }}>
               {Object.entries(systemInfo).map(([k, v]) => (
                 <div key={k} style={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -24,7 +22,9 @@ export default function Dashboard() {
               ))}
             </dl>
           ) : (
-            <div className="scanline" style={{ height: 100 }} />
+            <div className="text-muted" style={{ display: 'grid', placeItems: 'center', height: '100%' }}>
+              Unable to load system info
+            </div>
           )}
         </div>
       </div>

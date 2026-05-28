@@ -14,17 +14,15 @@ import subprocess
 import sys
 import threading
 import time
-from pathlib import Path
 from typing import Any
 
 import webview
 
 from backend.api import API
+from backend.config import DEV_MODE, DIST_DIR, FRONTEND_DIR, PROJECT_ROOT
+from backend.database.connection import init_db
+from backend.logging_config import setup_logging
 from backend.window import WINDOW_CONFIG, WINDOW_TITLE
-
-PROJECT_ROOT = Path(__file__).resolve().parent
-FRONTEND_DIR = PROJECT_ROOT / "frontend"
-DIST_DIR = FRONTEND_DIR / "dist"
 
 DEV_SERVER_PORT = 5173
 PROD_SERVER_PORT = 8080
@@ -97,9 +95,10 @@ def _start_vite_dev() -> subprocess.Popen[str]:
 
 
 def main() -> None:
-    dev_mode = os.environ.get("VITE_DEV", "1") == "1"
+    setup_logging()
+    init_db()
 
-    if dev_mode:
+    if DEV_MODE:
         print("[3D-Reporter] Starting Vite dev server...")
         vite_proc = _start_vite_dev()
         url = f"http://localhost:{DEV_SERVER_PORT}"
@@ -123,10 +122,10 @@ def main() -> None:
         **WINDOW_CONFIG,
     )
 
-    webview.start(debug=dev_mode, http_server=False)
+    webview.start(debug=DEV_MODE, http_server=False)
 
     # Cleanup: terminate the Vite process when the window closes
-    if dev_mode:
+    if DEV_MODE:
         try:
             vite_proc.terminate()
             vite_proc.wait(timeout=5)

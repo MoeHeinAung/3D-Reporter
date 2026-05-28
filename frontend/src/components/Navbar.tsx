@@ -1,11 +1,11 @@
 import { NavLink } from 'react-router-dom'
+import { useTheme } from '../hooks/useTheme'
+import { useUptime } from '../hooks/useUptime'
 
-interface NavbarProps {
-  uptime: string
-  onToggleTheme: () => void
-}
+export default function Navbar() {
+  const { toggleTheme } = useTheme()
+  const { formatted: uptime } = useUptime()
 
-export default function Navbar({ uptime, onToggleTheme }: NavbarProps) {
   return (
     <nav className="navbar">
       {/* Left section: Draws | Partners | Report */}
@@ -43,7 +43,7 @@ export default function Navbar({ uptime, onToggleTheme }: NavbarProps) {
         </NavLink>
         <span className="navbar__clock">{uptime}</span>
         <span className="navbar__status" />
-        <button className="theme-toggle" onClick={onToggleTheme} type="button">
+        <button className="theme-toggle" onClick={toggleTheme} type="button">
           <span className="theme-toggle__icon" />
         </button>
       </div>

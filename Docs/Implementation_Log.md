@@ -37,3 +37,37 @@ This document records feature implementations and significant structural changes
   - **`pages/*.tsx` (7 new files):** `Dashboard.tsx` (existing cards), plus placeholder pages for Draws, Partners, Report, Sales, Risk, Settings — each renders a full-width card in the 12×8 grid.
   - **`_navbar.scss`:** Added `text-decoration: none` to `&__trapezoid-text` and `&__link:hover` to prevent default link underlines from `_reset.scss`.
 - **Files:** `frontend/src/main.tsx`, `frontend/src/App.tsx`, `frontend/src/components/Navbar.tsx` (new), `frontend/src/pages/Dashboard.tsx` (new), `frontend/src/pages/Draws.tsx` (new), `frontend/src/pages/Partners.tsx` (new), `frontend/src/pages/Report.tsx` (new), `frontend/src/pages/Sales.tsx` (new), `frontend/src/pages/Risk.tsx` (new), `frontend/src/pages/Settings.tsx` (new), `frontend/src/styles/components/_navbar.scss`
+
+## 2026-05-28 — Database Schema (SQLite3 DDL)
+
+### IMPL-004: Core Schema for 3D Lottery Reporting System
+
+- **Rationale:** The application requires a structured SQLite3 database to manage draws, agents, master dealers, sales, batches, risk offloading, blacklist rules, and winning ticket tracking. All business constraints (draw lifecycle, blacklist enforcement, offloading rules) must be enforced at the database level wherever possible.
+- **Changes:**
+  - **`backend/schema.sql` (new):** Complete DDL with 8 tables (`agents`, `master_dealers`, `draws`, `batches`, `sales`, `offloaded`, `blacklist_tickets`, `winning_tickets`), 12 indexes on FK and lookup columns, and 12 triggers enforcing:
+    - Single active draw constraint (only one OPEN at a time)
+    - Linear status transitions (`OPEN → CLOSED → SETTLED`, no backwards moves)
+    - Sales gating (draw must be OPEN, cutoff must not have passed)
+    - Batch-to-sale integrity (batch must match sale's draw_id and agent_id)
+    - BLOCK blacklist enforcement (direct sales of BLOCK-listed tickets rejected)
+    - Batch total_amount denormalization (auto-synced on sales insert/update/delete)
+    - Offload/winnings protection (no modifications against SETTLED draws)
+  - **Column-level constraints:** Ticket numbers validated as 1-3 digit numeric strings via CHECK. Enum values constrained via CHECK IN clauses. Amounts must be positive integers.
+  - **Unique constraints:** `(draw_id, ticket, type)` on both `blacklist_tickets` and `winning_tickets` to prevent duplicate classifications.
+- **Files:** `backend/schema.sql` (new)
+
+## 2026-05-28 — Architecture Refactoring & Standards
+
+### IMPL-005: Comprehensive Architecture Refactoring
+
+- **Rationale:** The documented 5-layer architecture (API → Service → Repository → Database) was only partially implemented. The backend was a flat module with business logic embedded in the API bridge. The database schema existed as a `.sql` file with no ORM models or connectivity. The frontend used direct API calls from components instead of zustand stores and custom hooks. No tests or coding standards existed.
+- **Changes:**
+  - **Backend Foundation (8 files):** `config.py` (centralized settings), `errors.py` (AppError hierarchy), `logging_config.py` (structured logging), `database/connection.py` (SQLAlchemy engine singleton + session factory + `init_db()`), `database/models.py` (9 SQLAlchemy 2.0 ORM models matching schema.sql + Preference model for key-value settings).
+  - **Repository Layer (9 files):** `repositories/base.py` (generic `BaseRepository[T]` with CRUD), 8 entity-specific repositories (Agent, MasterDealer, Draw, Batch, Sale, Offloaded, BlacklistTicket, WinningTicket) each extending the base with domain query methods.
+  - **Service Layer (6 files):** `services/system_service.py` (system info, uptime), `services/theme_service.py` (theme preference with legacy JSON migration), `services/risk_service.py` (placeholder), `services/draw_service.py` (state machine with OPEN→CLOSED→SETTLED transitions, single-open enforcement), `services/sales_service.py` (validation cascade — draw status, cutoff, batch integrity, BLOCK blacklist, ticket format, batch total sync).
+  - **API Refactoring:** `api.py` rewritten as thin delegation layer with `_with_session()` helper for transactional session lifecycle. All business logic extracted to services. Theme migrated from `data/preferences.json` to `preferences` table.
+  - **Frontend Foundation (10 files):** `types/api.ts` (API contract types), `types/domain.ts` (domain entity interfaces), `stores/themeStore.ts` + `stores/systemStore.ts` (zustand stores), `hooks/useTheme.ts` + `hooks/useSystemInfo.ts` + `hooks/useUptime.ts` + `hooks/useApi.ts` (custom hooks).
+  - **Frontend Refactoring:** `App.tsx` simplified from 57 to ~35 lines (pure layout shell, no data fetching), `Navbar.tsx` reads from stores directly (no props), `Dashboard.tsx` uses `useSystemInfo()` hook. `bridge.ts` updated with new API method signatures and types.
+  - **Documentation (3 files):** `ARCHITECTURE.md` (layer diagram, data flow, design decisions, database schema), `CODING_STANDARDS.md` (Python, TypeScript, SCSS, testing, Git conventions), `CLAUDE.md` updated with architecture rules, layer constraints, and commands.
+  - **Tests (8 files):** `tests/conftest.py` (in-memory SQLite fixtures), `test_models.py`, `test_repositories/test_base.py`, `test_services/test_system_service.py`, `test_services/test_theme_service.py`. `requirements.txt` updated with pytest, pytest-cov.
+- **Files:** 35 created, 9 modified, 0 deleted. See `ARCHITECTURE.md` and `CODING_STANDARDS.md` for the full reference.

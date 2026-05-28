@@ -5,29 +5,7 @@
  * This module provides typed access and a mock fallback for browser dev.
  */
 
-// ---------------------------------------------------------------------------
-// Shared types matching backend/api.py return values
-// ---------------------------------------------------------------------------
-
-export interface SystemInfo {
-  platform: string
-  platformRelease: string
-  arch: string
-  pythonVersion: string
-  hostname: string
-}
-
-export interface RiskCategory {
-  label: string
-  value: number
-  threshold: number
-}
-
-export interface RiskTelemetry {
-  categories: RiskCategory[]
-  overall: number
-  updatedAt: string
-}
+import type { OpenDrawInfo, RiskTelemetry, SystemInfo, DrawResult, SaleResult, ApiError } from '../types'
 
 // ---------------------------------------------------------------------------
 // pywebview JS API type
@@ -37,11 +15,14 @@ interface PywebviewAPI {
   get_system_info(): Promise<SystemInfo>
   get_uptime_seconds(): Promise<number>
   get_server_time(): Promise<string>
-  read_json(filename: string): Promise<Record<string, unknown> | null>
-  write_json(filename: string, data: Record<string, unknown>): Promise<boolean>
   get_risk_telemetry(): Promise<RiskTelemetry>
   get_theme_preference(): Promise<string>
   set_theme_preference(theme: string): Promise<boolean>
+  open_draw(open_date: string, cutoff_time: string, house_holding_amount?: number, note?: string): Promise<DrawResult | ApiError>
+  close_draw(draw_id: number): Promise<DrawResult | ApiError>
+  settle_draw(draw_id: number): Promise<DrawResult | ApiError>
+  get_open_draw(): Promise<OpenDrawInfo | null | ApiError>
+  record_sale(draw_id: number, agent_id: string, batch_id: number, ticket: string, amount: number, note?: string): Promise<SaleResult | ApiError>
   echo(message: string): Promise<string>
   ping(): Promise<string>
 }
@@ -74,12 +55,6 @@ function getAPI(): PywebviewAPI {
     async get_server_time() {
       return new Date().toISOString()
     },
-    async read_json() {
-      return null
-    },
-    async write_json() {
-      return true
-    },
     async get_risk_telemetry() {
       return {
         categories: [
@@ -99,6 +74,21 @@ function getAPI(): PywebviewAPI {
     },
     async set_theme_preference() {
       return true
+    },
+    async open_draw() {
+      return { id: 1, status: 'OPEN' }
+    },
+    async close_draw() {
+      return { id: 1, status: 'CLOSED' }
+    },
+    async settle_draw() {
+      return { id: 1, status: 'SETTLED' }
+    },
+    async get_open_draw() {
+      return null
+    },
+    async record_sale() {
+      return { id: 1, ticket: '123', amount: 100 }
     },
     async echo(message: string) {
       return `[mock-backend] ${message}`

@@ -45,6 +45,60 @@ This project is indexed by GitNexus as **3D-Reporter** (171 symbols, 208 relatio
 
 <!-- gitnexus:end -->
 
+## Project Architecture
+
+3D Reporter follows a strict 5-layer architecture:
+
+```
+main.py (entry point)
+  └── backend/
+        ├── api.py               # API Layer — thin delegation, no business logic
+        ├── services/            # Service Layer — all domain logic, validation, state machines
+        ├── repositories/        # Repository Layer — all data access, CRUD operations
+        ├── database/            # Database Layer — SQLAlchemy ORM models, connection
+        │     ├── connection.py  # Engine singleton, session factory, init_db()
+        │     ├── models.py      # 9 ORM models (Agent, Draw, Sale, etc.)
+        │     └── schema.sql     # Reference DDL (documentation only)
+        ├── config.py            # Centralized settings (paths, DB URL)
+        ├── errors.py            # Custom exception hierarchy
+        └── logging_config.py    # Structured logging setup
+  └── frontend/src/
+        ├── api/bridge.ts        # Typed pywebview API bridge
+        ├── types/               # Shared TypeScript interfaces
+        ├── stores/              # Zustand stores (themeStore, systemStore)
+        ├── hooks/               # Custom React hooks (useTheme, useUptime, etc.)
+        ├── components/          # Reusable UI components
+        ├── pages/               # Route-level page components
+        └── styles/              # SCSS design system
+
+See `ARCHITECTURE.md` for the full architecture document.
+See `CODING_STANDARDS.md` for coding standards, conventions, and commands.
+
+## Layer Rules (Hard Constraints)
+
+- **API Layer:** Handles only bridge concerns — receiving calls, delegating to services, formatting responses. No business logic.
+- **Service Layer:** All domain logic lives here — state machines, validation, calculations. Services depend on repositories (constructor injection). Never access the database directly.
+- **Repository Layer:** All data persistence flows through here. One repository per entity. Extend `BaseRepository[T]`. No raw SQL or ORM queries outside this layer.
+- **Database Layer:** SQLAlchemy 2.0 ORM with `Mapped` + `mapped_column`. `Base.metadata.create_all()` creates tables on startup.
+- **Frontend Layer:** Handles only presentation and interaction. No domain logic. Use zustand stores for state, custom hooks for data fetching.
+
+**Never skip layers.** API → Service → Repository → Database. Frontend → bridge → API (never frontend → DB directly).
+
+## Commands
+
+```bash
+# Backend
+python main.py                          # Run desktop app (dev mode)
+pytest tests/ -v                        # Run all tests
+pytest tests/ --cov=backend             # Tests with coverage
+
+# Frontend
+cd frontend && npm run dev              # Vite dev server
+cd frontend && npm run build            # Production build
+cd frontend && npm run lint             # ESLint
+cd frontend && npx tsc --noEmit        # Type checking
+```
+
 ## Mandatory Protocols
 
 ### 1. Error Resolution Protocol

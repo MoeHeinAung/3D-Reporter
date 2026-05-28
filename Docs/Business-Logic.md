@@ -49,3 +49,29 @@ This document captures business logic, domain rules, constraints, and core ideas
   - **Frontend Layer:** Handles only presentation and interaction. No domain logic.
   - **Hard rules:** No logic leakage between layers. No layer skipping (e.g., frontend → database directly). API → Service → Repository pipeline is mandatory.
 - **Affects:** Backend architecture, all API routes, all service modules.
+
+## 2026-05-28 — Lottery Database Schema & Domain Rules
+
+- **Source:** User-provided table definitions and business constraints for the 3D lottery reporting system.
+- **Logic:**
+  - **Draw Lifecycle:** Draws follow a strict linear state machine: `OPEN → CLOSED → SETTLED`. No backward transitions are permitted. Only one draw may be OPEN at any time. A draw's `cutoff_time` gates whether sales can be recorded — once `datetime('now')` exceeds it, even an OPEN draw rejects sales.
+  - **Sales & Batches:** Sales are always grouped under a `batch`, which ties them to a specific `agent` and `draw`. A batch's `total_amount` is the denormalized sum of its sales and is maintained automatically. A sale's batch must reference the same `draw_id` and `agent_id` as the sale itself.
+  - **Risk Management (Offloading):** The Admin/House retains only `house_holding_amount` per ticket. Any sale amount exceeding this limit must be recorded in the `offloaded` table, assigned to a `master_dealer`. A single ticket may have multiple offload entries if sold multiple times. Offloading is rejected once a draw is SETTLED.
+  - **Blacklist — HALF:** When a winning ticket appears in the blacklist with type `HALF`, the prize payout is reduced by 50%. This is enforced at the application/service layer (payout calculation), not at the database level.
+  - **Blacklist — BLOCK:** When a ticket is blacklisted as `BLOCK`, the sale amount must not be held by the Admin/House — it goes directly to a master dealer via the `offloaded` table. The database trigger enforces this by *rejecting* direct `sales` inserts for BLOCK-listed tickets, forcing the application to route the entry through `offloaded` with an explicit `master_dealer_id`.
+  - **Tickets:** Ticket numbers are 1-3 digit numeric strings (`[0-9]` only, length 1-3). This is enforced at the column level via CHECK constraints across `sales`, `offloaded`, `blacklist_tickets`, and `winning_tickets`.
+  - **Entities:** Agents and Master Dealers are separate entity types, each with their own commission, jp_factor, and sp_factor driving payout calculations.
+  - **Winning Tickets:** A draw can have multiple winning tickets, categorized as either 'Jackpot' or 'Minor'. A `(draw_id, ticket, type)` combination must be unique. Setting winning tickets is only allowed while the draw is not already SETTLED (to prevent mid-settlement changes). Announcing winners triggers report calculation — this is application-layer logic.
+- **Affects:** `backend/schema.sql`, future service layer (settlement reports, payout calculations, risk offloading).
+
+## 2026-05-28 — SQLite Schema Design Decisions
+
+- **Source:** DDL schema generation for the lottery reporting system.
+- **Logic:**
+  - **Natural keys for parties:** `agents.id` and `master_dealers.id` are user-defined varchar(3) codes, not auto-generated integers. These are the business identifiers operators use.
+  - **Surrogate keys for transactions:** `draws`, `batches`, `sales`, `offloaded`, `blacklist_tickets`, and `winning_tickets` all use `INTEGER PRIMARY KEY AUTOINCREMENT` — standard SQLite idiom for auto-incrementing row IDs.
+  - **Denormalization tradeoff:** `batches.total_amount` is a cached sum of `sales.amount` maintained by triggers. This avoids aggregate queries on every batch listing at the cost of trigger complexity on insert/update/delete of sales.
+  - **Enum simulation:** SQLite lacks native ENUM types. All enum columns (`draws.status`, `blacklist_tickets.type`, `winning_tickets.type`) use TEXT with CHECK constraints listing valid values.
+  - **Timestamp convention:** All `created_at` columns use `TEXT NOT NULL DEFAULT (datetime('now'))`, storing ISO-8601 UTC strings. This is the recommended SQLite approach over INTEGER Unix timestamps for human-readability.
+  - **Unique constraints prevent duplicate classifications:** `blacklist_tickets` and `winning_tickets` have `UNIQUE(draw_id, ticket, type)`, preventing the same ticket from being blacklisted with the same type twice or winning in the same category twice within a draw.
+- **Affects:** `backend/schema.sql`.
