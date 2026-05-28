@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Strict Viewport Grid Template</title>
+  <style>
+    /* --------------------------------------------------
+       1. VIEWPORT & RESET
+       Prevents any browser/body-level scrollbars entirely.
+    -------------------------------------------------- */
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: #f3f4f6;
+      color: #1f2937;
+    }
+
+    /* Fullscreen application wrapper */
+    .page-layout {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      height: 100vh;
+    }
+
+    /* --------------------------------------------------
+       2. NAVBAR COMPONENT
+       Stays locked at its own content height.
+    -------------------------------------------------- */
+    .navbar {
+      flex-shrink: 0;
+      height: 60px;
+      background-color: #1e293b;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      padding: 0 24px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      z-index: 10;
+    }
+
+    .navbar-brand {
+      font-weight: 700;
+      font-size: 1.25rem;
+    }
+
+    /* --------------------------------------------------
+       3. STRICT MAIN GRID CONTAINER
+       Guarantees an exact 12x8 layout matching the viewport.
+    -------------------------------------------------- */
+    .main-content {
+      flex-grow: 1;
+      min-height: 0; /* Critical for containing nested overflows */
+      height: 100%;
+      
+      display: grid;
+      grid-template-columns: repeat(12, minmax(0, 1fr));
+      /* Strict math: Splits available height into 8 rows, accounting for 7 gaps of 24px */
+      grid-template-rows: repeat(8, calc((100% - (7 * 24px)) / 8));
+      gap: 24px;
+      padding: 24px;
+      box-sizing: border-box;
+
+      align-items: stretch;
+      justify-items: stretch;
+    }
+
+    /* Base card styling for wireframing elements */
+    .wireframe-card {
+      background-color: #ffffff;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      box-sizing: border-box;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden; /* Hard ceiling: content cannot expand this card's row */
+    }
+
+    .card-title {
+      margin-top: 0;
+      margin-bottom: 8px;
+      font-size: 1rem;
+      font-weight: 600;
+      color: #4b5563;
+      border-bottom: 1px solid #f3f4f6;
+      padding-bottom: 8px;
+    }
+
+    /* --------------------------------------------------
+       4. OVERFLOW HANDLING STRATEGIES
+    -------------------------------------------------- */
+
+    /* Strategy A: Internal Scrollbar */
+    .scroll-container {
+      flex-grow: 1;
+      min-height: 0; /* Forces internal boundary containment */
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    /* Strategy B: Internal Pagination */
+    .paginated-container {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+    }
+
+    .pagination-body {
+      flex-grow: 1;
+      min-height: 0;
+      overflow: hidden; /* No scrollbars here; strictly cropped for pagination */
+    }
+
+    .pagination-controls {
+      flex-shrink: 0;
+      height: 40px;
+      margin-top: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-top: 1px solid #e5e7eb;
+      padding-top: 8px;
+    }
+
+    .btn {
+      background-color: #2563eb;
+      color: white;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.85rem;
+    }
+    .btn:hover { background-color: #1d4ed8; }
+
+    /* Mock placeholder text styling */
+    .placeholder-text {
+      color: #9ca3af;
+      line-height: 1.5;
+      font-size: 0.9rem;
+    }
+
+    /* --------------------------------------------------
+       5. WIREFRAME CARD PLACEMENTS (12x8 GRID Mapping)
+    -------------------------------------------------- */
+    .card-1 { grid-column: span 3; grid-row: span 4; }
+    .card-2 { grid-column: span 6; grid-row: span 4; }
+    .card-3 { grid-column: span 3; grid-row: span 8; } /* Tall layout card */
+    .card-4 { grid-column: span 4; grid-row: span 4; }
+    .card-5 { grid-column: span 5; grid-row: span 4; }
+  </style>
+</head>
+<body>
+
+  <div class="page-layout">
+    
+    <!-- Header/Navbar level stays pinned -->
+    <header class="navbar">
+      <div class="navbar-brand">Dashboard Wireframe Layout</div>
+    </header>
+
+    <!-- Main 12x8 Grid Space -->
+    <main class="main-content">
+
+      <!-- CARD 1: Normal card with small content -->
+      <div class="wireframe-card card-1">
+        <h2 class="card-title">Card 1 (3x4 Grid)</h2>
+        <div class="placeholder-text">
+          Small content block. It doesn't stretch or distort the grid rows below it.
+        </div>
+      </div>
+
+      <!-- CARD 2: Safe Overflow Scroll Card -->
+      <div class="wireframe-card card-2">
+        <h2 class="card-title">Card 2 (6x4 Grid) - Auto-Scrolling Container</h2>
+        <div class="scroll-container">
+          <div class="placeholder-text">
+            <p><strong>This block has excessive content:</strong></p>
+            <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sizing remains completely rigid. Even with hundreds of paragraphs inserted here, the row will not expand downward, and the overall browser window will never produce a vertical scrollbar.</p>
+            <p>Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.</p>
+            <p>Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- CARD 3: Multi-row Spanning Card -->
+      <div class="wireframe-card card-3">
+        <h2 class="card-title">Card 3 (3x8 Grid)</h2>
+        <div class="scroll-container">
+          <div class="placeholder-text">
+            Spans all 8 rows perfectly from top to bottom.
+          </div>
+        </div>
+      </div>
+
+      <!-- CARD 4: Inline Paginated Card Layout -->
+      <div class="wireframe-card card-4">
+        <h2 class="card-title">Card 4 (4x4 Grid) - Paginated Content</h2>
+        <div class="paginated-container">
+          <div class="pagination-body">
+            <div class="placeholder-text">
+              <p><strong>Page 1 Content Shown Here</strong></p>
+              <p>Overflow content is safely handled. This block relies on localized code pagination rather than a scroll wheel.</p>
+            </div>
+          </div>
+          <div class="pagination-controls">
+            <button class="btn">Prev</button>
+            <span style="font-size: 0.85rem; color: #6b7280;">Page 1 of 3</span>
+            <button class="btn">Next</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- CARD 5: Empty Wireframe Area -->
+      <div class="wireframe-card card-5">
+        <h2 class="card-title">Card 5 (5x4 Grid)</h2>
+        <div class="placeholder-text">
+          Empty placement structure.
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+</body>
+</html>

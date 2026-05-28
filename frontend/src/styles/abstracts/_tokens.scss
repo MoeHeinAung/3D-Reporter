@@ -6,8 +6,8 @@
 
 :root {
   // ----- Color Palette: Deep Space (Dark Mode) -----
-  --color-void:       #0A0B0E;
-  --color-obsidian:   #14161C;
+  --color-void:       #0d1516;
+  --color-obsidian:   #0A1525;
   --color-primary:    #00F0FF;   // Striker Blue (Cyan)
   --color-secondary:  #8A2BE2;   // Neural Violet
   --color-error:      #FF0055;   // Alert Red
@@ -59,6 +59,16 @@
   --space-8:  2.5rem;
   --space-10: 3rem;
   --space-12: 4rem;
+
+  // Navbar
+  --navbar-height: 48px;
+  --navbar-bg: rgba(2, 6, 23, 0.9);
+  --navbar-border: rgba(255, 255, 255, 0.05);
+  --navbar-trapezoid-bg: #0A1525;
+
+  // Background grid
+  --grid-line-color: rgba(0, 218, 243, 0.05);
+  --grid-cell-size: 32px;
 
   // Grid gap
   --grid-gap: 24px;

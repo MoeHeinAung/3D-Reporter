@@ -1,0 +1,23 @@
+// ============================================================================
+// BACKGROUND GRID OVERLAY — Docs/Navbar-and-background-reference.html
+// Subtle 12×8 grid cell overlay behind cards at 20% opacity.
+// Each cell: 1px border at primary/20, subtle primary/5 fill.
+// ============================================================================
+
+.grid-overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: repeat(var(--grid-columns), 1fr);
+  grid-template-rows: repeat(var(--grid-rows), 1fr);
+  gap: var(--grid-gap);
+  padding: var(--grid-gap);
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.2;
+}
+
+.grid-overlay__cell {
+  border: 1px solid rgba(0, 240, 255, 0.2);
+  background: rgba(0, 240, 255, 0.05);
+}

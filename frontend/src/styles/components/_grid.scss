@@ -1,22 +1,42 @@
 // ============================================================================
-// 12×8 GRID SYSTEM — Docs/UI-Design-system.md §2
+// 12×8 GRID SYSTEM — Docs/Page-Grid-Layout-Reference.html
 // Non-scrolling viewport architecture.
-// Main container: 12 columns × 8 rows, gap = 24px
+// Flex wrapper (navbar + main grid). Navbar is fixed-height; the remaining
+// viewport is filled by a 12-column × 8-row CSS grid with 24px gaps.
 // Row height: calc((100% - (7 * 24px)) / 8)
 // ============================================================================
 
 @use '../abstracts/mixins' as *;
 
-// The application shell fills exactly 100vw × 100vh
-.app-shell {
-  display: grid;
-  grid-template-columns: repeat(var(--grid-columns), 1fr);
-  grid-template-rows: repeat(var(--grid-rows), calc((100vh - (7 * var(--grid-gap))) / 8));
-  gap: var(--grid-gap);
+// ---- Outer Flex Wrapper ----
+
+.page-layout {
+  display: flex;
+  flex-direction: column;
   width: 100vw;
   height: 100vh;
-  padding: var(--grid-gap);
   overflow: hidden;
+}
+
+// ---- Main Grid Container ----
+// flex-grow: 1 consumes all remaining space below the navbar.
+// min-height: 0 is critical — without it a flex child won't shrink below
+// its content's intrinsic height, which would push past the viewport.
+
+.main-content {
+  flex-grow: 1;
+  min-height: 0;
+  height: 100%;
+
+  display: grid;
+  grid-template-columns: repeat(var(--grid-columns), minmax(0, 1fr));
+  grid-template-rows: repeat(var(--grid-rows), calc((100% - (7 * var(--grid-gap))) / 8));
+  gap: var(--grid-gap);
+  padding: var(--grid-gap);
+  box-sizing: border-box;
+
+  align-items: stretch;
+  justify-items: stretch;
 }
 
 // ---- Grid Placement Utilities ----
@@ -47,41 +67,11 @@
   .row-end-#{$i}   { grid-row-end: $i; }
 }
 
-// ---- Common Grid Layout Presets ----
-
-// Full-width navbar spanning all columns, 1 row
-.grid-navbar {
-  grid-column: 1 / -1;
-  grid-row: span 1;
-}
-
-// Sidebar: 3 cols, all content rows
-.grid-sidebar {
-  grid-column: span 3;
-  grid-row: 2 / -1;
-}
-
-// Main content area
-.grid-main {
-  grid-column: span 9;
-  grid-row: 2 / -1;
-}
-
-// ---- Grid Responsive Adjustments ----
+// ---- Responsive ----
 
 @include respond-to(small) {
-  .app-shell {
+  .main-content {
     gap: 16px;
-    --grid-gap: 16px;
-  }
-
-  .grid-sidebar {
-    grid-column: span 12;
-    grid-row: span 2;
-  }
-
-  .grid-main {
-    grid-column: span 12;
-    grid-row: span 6;
+    padding: 16px;
   }
 }

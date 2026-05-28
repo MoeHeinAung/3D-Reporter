@@ -129,6 +129,9 @@ Thumbs.db
 # Kilo configuration
 .kilo/
 
+# Claude Code
+.claude/
+
 # Misc
 *.bak
 *.tmp

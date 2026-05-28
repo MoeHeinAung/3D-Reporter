@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { api, type SystemInfo } from './api/bridge'
 
+const GRID_CELLS = 12 * 8
+
 function App() {
   const [systemInfo, setSystemInfo] = useState<SystemInfo | null>(null)
   const [uptime, setUptime] = useState(0)
@@ -11,12 +13,10 @@ function App() {
     api.get_theme_preference().then((t) => {
       setTheme(t)
       document.documentElement.setAttribute('data-theme', t)
-      // Mark as ready to enable smooth theme transitions
       document.documentElement.classList.add('theme-ready')
     })
   }, [])
 
-  // Uptime polling
   useEffect(() => {
     const id = setInterval(() => {
       api.get_uptime_seconds().then(setUptime)
@@ -39,26 +39,31 @@ function App() {
   }
 
   return (
-    <div className="app-shell">
-      {/* Navbar — full width, 1 row */}
-      <nav className="navbar grid-navbar">
-        <div className="navbar__logo">
-          <span className="navbar__logo-text">3DR</span>
+    <div className="page-layout">
+      {/* Navbar — 48px, frosted glass, subtle bottom border */}
+      <nav className="navbar">
+        {/* Left nav links */}
+        <div className="navbar__left">
+          <div className="navbar__nav">
+            <a className="navbar__link navbar__link--active" href="#">
+              Dashboard
+            </a>
+            <a className="navbar__link" href="#">
+              Telemetry
+            </a>
+          </div>
         </div>
 
-        <div className="navbar__nav">
-          <a className="navbar__link navbar__link--active" href="#">
-            Dashboard
-          </a>
-          <a className="navbar__link" href="#">
-            Telemetry
-          </a>
+        {/* Center trapezoid logo — overflows the 48px bar */}
+        <div className="navbar__trapezoid">
+          <span className="navbar__trapezoid-text">3D Reporter</span>
+        </div>
+
+        {/* Right section: nav link + clock + status + theme */}
+        <div className="navbar__right">
           <a className="navbar__link" href="#">
             Archive
           </a>
-        </div>
-
-        <div className="navbar__actions">
           <span className="navbar__clock">{formatUptime(uptime)}</span>
           <span className="navbar__status" />
           <button className="theme-toggle" onClick={toggleTheme} type="button">
@@ -67,9 +72,17 @@ function App() {
         </div>
       </nav>
 
-      {/* Sidebar — 3 cols, 7 rows */}
-      <aside className="grid-sidebar">
-        <div className="card">
+      {/* Main 12×8 Grid */}
+      <main className="main-content" style={{ position: 'relative' }}>
+        {/* Grid overlay — subtle 12×8 cell borders behind cards */}
+        <div className="grid-overlay">
+          {Array.from({ length: GRID_CELLS }, (_, i) => (
+            <div key={i} className="grid-overlay__cell" />
+          ))}
+        </div>
+
+        {/* System Info — 3 cols × 4 rows */}
+        <div className="card" style={{ gridColumn: 'span 3', gridRow: 'span 4', zIndex: 1, position: 'relative' }}>
           <div className="card__header">System</div>
           <div className="card__body">
             {systemInfo ? (
@@ -86,14 +99,9 @@ function App() {
             )}
           </div>
         </div>
-      </aside>
 
-      {/* Main — 9 cols, 7 rows (rows 2-8) */}
-      <main
-        className="grid-main"
-        style={{ display: 'grid', gridTemplateRows: 'subgrid', gridRow: 'span 7', gap: 'var(--grid-gap)' }}
-      >
-        <div className="card pulse-hologram" style={{ gridRow: 'span 3' }}>
+        {/* Risk Telemetry — 5 cols × 4 rows */}
+        <div className="card pulse-hologram" style={{ gridColumn: 'span 5', gridRow: 'span 4', zIndex: 1, position: 'relative' }}>
           <div className="card__header">Risk Telemetry</div>
           <div className="card__body">
             <div className="text-muted" style={{ display: 'grid', placeItems: 'center', height: '100%' }}>
@@ -102,7 +110,8 @@ function App() {
           </div>
         </div>
 
-        <div className="card" style={{ gridRow: 'span 3' }}>
+        {/* Operational Status — 4 cols × 4 rows */}
+        <div className="card" style={{ gridColumn: 'span 4', gridRow: 'span 4', zIndex: 1, position: 'relative' }}>
           <div className="card__header">Operational Status</div>
           <div className="card__body">
             <div className="text-muted" style={{ display: 'grid', placeItems: 'center', height: '100%' }}>
@@ -111,7 +120,8 @@ function App() {
           </div>
         </div>
 
-        <div className="card card--compact" style={{ gridRow: 'span 1' }}>
+        {/* Quick Actions — full-width bottom row */}
+        <div className="card card--compact" style={{ gridColumn: 'span 12', gridRow: 'span 4', zIndex: 1, position: 'relative' }}>
           <div className="card__header">Quick Actions</div>
           <div className="card__body">
             <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>

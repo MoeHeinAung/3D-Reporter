@@ -1,0 +1,528 @@
+<!DOCTYPE html><html class="dark" lang="en"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Quantum Admin - User Management</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600&amp;family=Inter:wght@400;600;700;900&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "background": "#0d1516",
+                        "surface": "#0d1930",
+                        "on-secondary-container": "#002a53",
+                        "primary": "#c3f5ff",
+                        "on-primary-fixed-variant": "#004f58",
+                        "error": "#ffb4ab",
+                        "primary-container": "#00e5ff",
+                        "on-primary": "#00363d",
+                        "surface-dim": "#0d1516",
+                        "tertiary-fixed": "#63ff93",
+                        "on-secondary": "#00315f",
+                        "on-surface-variant": "#bac9cc",
+                        "tertiary-container": "#00ef77",
+                        "surface-tint": "#00daf3",
+                        "surface-variant": "#2e3638",
+                        "surface-container-lowest": "#080f11",
+                        "inverse-surface": "#dce4e5",
+                        "on-tertiary-fixed-variant": "#005224",
+                        "tertiary": "#aeffbb",
+                        "surface-bright": "#333a3c",
+                        "secondary": "#a5c8ff",
+                        "secondary-container": "#2792ff",
+                        "on-tertiary-fixed": "#00210b",
+                        "on-tertiary-container": "#00672f",
+                        "on-primary-container": "#00626e",
+                        "primary-fixed": "#9cf0ff",
+                        "surface-container": "#192122",
+                        "on-error": "#690005",
+                        "on-primary-fixed": "#001f24",
+                        "secondary-fixed-dim": "#a5c8ff",
+                        "on-secondary-fixed": "#001c3a",
+                        "on-background": "#dce4e5",
+                        "primary-fixed-dim": "#00daf3",
+                        "outline": "#849396",
+                        "error-container": "#93000a",
+                        "on-tertiary": "#003917",
+                        "surface-container-high": "#242b2d",
+                        "tertiary-fixed-dim": "#00e471",
+                        "inverse-primary": "#006875",
+                        "on-secondary-fixed-variant": "#004786",
+                        "on-error-container": "#ffdad6",
+                        "on-surface": "#dce4e5",
+                        "secondary-fixed": "#d4e3ff",
+                        "surface-container-low": "#151d1e",
+                        "surface-container-highest": "#2e3638",
+                        "outline-variant": "#3b494c",
+                        "inverse-on-surface": "#2a3233"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "xl": "40px",
+                        "margin": "24px",
+                        "unit": "4px",
+                        "lg": "24px",
+                        "xs": "4px",
+                        "md": "16px",
+                        "gutter": "16px",
+                        "sm": "8px"
+                    },
+                    "fontFamily": {
+                        "h2-header": ["Inter"],
+                        "data-sm": ["Space Grotesk"],
+                        "body-md": ["Inter"],
+                        "h1-display": ["Inter"],
+                        "label-caps": ["Inter"],
+                        "data-lg": ["Space Grotesk"]
+                    },
+                    "fontSize": {
+                        "h2-header": ["18px", {"lineHeight": "24px", "letterSpacing": "0.5px", "fontWeight": "600"}],
+                        "data-sm": ["12px", {"lineHeight": "16px", "fontWeight": "500"}],
+                        "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                        "h1-display": ["24px", {"lineHeight": "32px", "letterSpacing": "2px", "fontWeight": "700"}],
+                        "label-caps": ["11px", {"lineHeight": "14px", "letterSpacing": "1px", "fontWeight": "700"}],
+                        "data-lg": ["20px", {"lineHeight": "24px", "letterSpacing": "0.5px", "fontWeight": "600"}]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body {
+            background-image: 
+                linear-gradient(rgba(0, 218, 243, 0.05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 218, 243, 0.05) 1px, transparent 1px);
+            background-size: 32px 32px;
+            background-color: #0d1516;
+            width: 1920px;
+            height: 1080px;
+            overflow: hidden;
+            margin: 0;
+            padding: 0;
+        }
+        .glass-panel {
+            background: rgba(10, 21, 37, 0.4);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 0 !important;
+        }
+        .corner-accent::before {
+            content: '';
+            position: absolute;
+            top: -1px;
+            left: -1px;
+            width: 48px;
+            height: 16px;
+            border-top: 2px solid #00daf3;
+            border-left: 2px solid #00daf3;
+            z-index: 10;
+        }
+        .corner-accent::after {
+            content: '';
+            position: absolute;
+            bottom: -1px;
+            right: -1px;
+            width: 48px;
+            height: 16px;
+            border-bottom: 2px solid #00daf3;
+            border-right: 2px solid #00daf3;
+            z-index: 10;
+        }
+        .trapezoid {
+            clip-path: polygon(0 0, 100% 0, 90% 100%, 10% 100%);
+            background: #0A1525;
+            height: 64px !important;
+            top: 0;
+            position: relative;
+            box-shadow: inset 0 -20px 30px -10px rgba(0, 218, 243, 0.3);
+        }
+        .trapezoid::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 10%;
+            width: 80%;
+            height: 2px;
+            background: #00daf3;
+            box-shadow: 0 0 10px rgba(0, 218, 243, 0.8), 0 0 20px rgba(0, 218, 243, 0.5);
+        }
+        .btn-special {
+            background: transparent;
+            border: 1px solid #00daf3;
+            color: #00daf3;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            z-index: 1;
+            border-radius: 0 !important;
+        }
+        .btn-special::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent 0%, rgba(0, 218, 243, 0.2) 20%, #00daf3 100%);
+            transition: left 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: -1;
+        }
+        .btn-special:hover {
+            color: #00363d;
+            box-shadow: 0 0 20px rgba(0, 218, 243, 0.5);
+            text-shadow: none;
+        }
+        .btn-special:hover::before {
+            left: 0;
+        }
+    
+        .btn-dynamic-border {
+            position: relative;
+            border-radius: 8px !important;
+            border: 1px solid #00daf3; /* Base side borders */
+            border-top-color: transparent;
+            border-bottom-color: transparent;
+            transition: all 0.3s ease;
+        }
+
+        .btn-dynamic-border::before {
+            content: '';
+            position: absolute;
+            top: -1px;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(to right, #00daf3 6px, transparent 6px, transparent calc(100% - 6px), #00daf3 calc(100% - 6px));
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 2;
+        }
+
+        .btn-dynamic-border::after {
+            content: '';
+            position: absolute;
+            bottom: -1px;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(to right, #00daf3 6px, transparent 6px, transparent calc(100% - 6px), #00daf3 calc(100% - 6px));
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 2;
+        }
+
+        .btn-dynamic-border:hover::before,
+        .btn-dynamic-border:hover::after {
+            background: #00daf3;
+        }
+
+        .btn-dynamic-border:hover {
+            box-shadow: 0 0 15px rgba(0, 229, 255, 0.5);
+            border-left-color: #00daf3;
+            border-right-color: #00daf3;
+        }
+
+        .btn-dynamic-border.btn-special {
+            border: none;
+            box-shadow: inset 0 0 0 1px #00daf3;
+            border-top: none;
+            border-bottom: none;
+        }
+
+        @keyframes scanline {
+            0% { transform: translateY(-100%); }
+            100% { transform: translateY(100%); }
+        }
+
+        @keyframes pulse-hologram {
+            0%, 100% { opacity: 0.6; filter: drop-shadow(0 0 2px #00daf3); }
+            50% { opacity: 0.9; filter: drop-shadow(0 0 8px #00daf3); }
+        }
+
+        .hologram-effect {
+            position: relative;
+            background: radial-gradient(circle at center, rgba(0, 218, 243, 0.1) 0%, transparent 70%);
+            animation: pulse-hologram 4s infinite ease-in-out;
+        }
+
+        .hologram-effect::after {
+            content: "";
+            position: absolute;
+            top: 0; left: 0; right: 0; height: 2px;
+            background: rgba(0, 218, 243, 0.2);
+            animation: scanline 3s infinite linear;
+            pointer-events: none;
+        }
+        
+        .main-grid {
+            display: grid;
+            grid-template-columns: repeat(12, 1fr);
+            grid-template-rows: repeat(8, 1fr);
+            gap: 24px;
+            height: calc(1080px - 48px - 48px); /* 1080px total - 48px navbar - 48px padding (24px top/bottom) */
+            width: calc(1920px - 48px); /* 1920px total - 48px padding (24px left/right) */
+            padding: 24px;
+            margin-top: 48px;
+        }
+    </style>
+</head>
+<body class="text-on-background font-body-md text-body-md">
+<!-- New Navbar -->
+<header class="fixed top-0 left-0 w-full h-[48px] z-50 flex items-center px-6 bg-slate-950/90 backdrop-blur-md border-b border-white/5">
+<div class="flex-1 flex items-center gap-4">
+<nav class="flex items-center gap-8 ml-4">
+<a class="font-['Inter'] text-[12px] font-bold uppercase tracking-widest text-primary border-b-2 border-primary pb-[14px] pt-[14px]" href="#">NETWORK</a>
+<a class="font-['Inter'] text-[12px] font-bold uppercase tracking-widest text-on-surface-variant hover:text-primary-container transition-colors" href="#">OPERATIONS</a>
+
+</nav>
+</div>
+<div class="absolute left-1/2 -translate-x-1/2 h-full trapezoid flex items-center justify-center" style="width: 500px;">
+<h1 class="text-primary font-h1-display text-[20px] font-black tracking-[4px] uppercase drop-shadow-[0_0_10px_rgba(0,229,255,0.8)]">DASHBOARD</h1>
+</div>
+<div class="flex-1 flex justify-end items-center gap-6">
+<nav class="flex items-center gap-8 mr-4">
+<a class="font-['Inter'] text-[12px] font-bold uppercase tracking-widest text-on-surface-variant hover:text-primary-container transition-colors" href="#">RISK</a>
+<a class="font-['Inter'] text-[12px] font-bold uppercase tracking-widest text-on-surface-variant hover:text-primary-container transition-colors" href="#">REPORTS</a>
+
+</nav>
+</div>
+</header>
+<!-- Main Content Grid -->
+<main class="main-grid mx-auto relative"><div class="absolute inset-0 pointer-events-none z-0 opacity-20" style="display: grid; grid-template-columns: repeat(12, 1fr); grid-template-rows: repeat(8, 1fr); gap: 24px; padding: 24px;"><div class="border border-primary/20 bg-primary/5"></div><div class="border border-primary/20 bg-primary/5"></div><div class="border border-primary/20 bg-primary/5"></div><div class="border border-primary/20 bg-primary/5"></div><div class="border border-primary/20 bg-primary/5"></div><div class="border border-primary/20 bg-primary/5"></div><div class="border border-primary/20 bg-primary/5"></div><div class="border border-primary/20 bg-primary/5"></div><div class="border border-primary/20 bg-primary/5"></div><div class="border border-primary/20 bg-primary/5"></div><div class="border border-primary/20 bg-primary/5"></div><div class="border border-primary/20 bg-primary/5"></div><div class="border border-primary/20 bg-primary/5"></div><div class="border border-primary/20 bg-primary/5"></div><div class="border border-primary/20 bg-primary/5"></div><div class="border border-primary/20 bg-primary/5"></div><div class="border border-primary/20 bg-primary/5"></div><div class="border border-primary/20 bg-primary/5"></div><div class="border border-primary/20 bg-primary/5"></div><div class="border border-primary/20 bg-primary/5"></div><div class="border border-primary/20 bg-primary/5"></div><div class="border border-primary/20 bg-primary/5"></div><div class="border border-primary/20 bg-primary/5"></div><div class="border border-primary/20 bg-primary/5"></div></div>
+<!-- Action Bar: row 1, cols 1-8 -->
+<div class="glass-panel p-4 flex justify-between items-center relative corner-accent" style="grid-column: 1 / 9; grid-row: 1 / 2;">
+<div class="flex items-center gap-4">
+<h3 class="font-h2-header text-primary uppercase tracking-widest text-sm">Active Directory</h3>
+</div>
+<button class="btn-special px-8 py-2 font-label-caps text-label-caps h-full">
+<span class="relative z-10 flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px]">add</span>
+                Add User
+            </span>
+</button>
+</div>
+<!-- Data Table Container: rows 2-8, cols 1-8 -->
+<div class="glass-panel relative corner-accent flex flex-col" style="grid-column: 1 / 9; grid-row: 2 / 9;">
+<div class="p-4 border-b border-white/10 flex justify-between items-center bg-slate-900/40">
+<h3 class="font-h2-header text-h2-header text-primary">System Users</h3>
+<span class="font-data-sm text-data-sm text-on-surface-variant uppercase tracking-wider">1,492 Records Found</span>
+</div>
+<div class="overflow-y-auto overflow-x-hidden flex-1 relative">
+<table class="w-full text-left border-collapse">
+<thead class="sticky top-0 bg-slate-900 z-10">
+<tr class="border-b border-white/10 bg-surface-container/30">
+<th class="px-6 py-4 font-label-caps text-label-caps text-on-surface-variant uppercase">User</th>
+<th class="px-6 py-4 font-label-caps text-label-caps text-on-surface-variant uppercase">Role</th>
+<th class="px-6 py-4 font-label-caps text-label-caps text-on-surface-variant uppercase">Status</th>
+<th class="px-6 py-4 font-label-caps text-label-caps text-on-surface-variant uppercase">Last Login</th>
+<th class="px-6 py-4 font-label-caps text-label-caps text-on-surface-variant uppercase text-right">Actions</th>
+</tr>
+</thead>
+<tbody class="font-body-md text-on-surface divide-y divide-white/5">
+<tr class="hover:bg-white/5 transition-colors cursor-pointer bg-primary/5">
+<td class="px-6 py-4 flex items-center gap-3">
+<div class="w-8 h-8 rounded-full border border-primary/50 overflow-hidden">
+<img alt="Alex Mercer" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD5esXr6kv2nlETvS_YFXm6PDhXLbCfYDOPS4n_xKt86GKexLGi6MLDenKCEMOcDzvmzyI-CzW6T_tNYXyy95EkzPeKcmNSzKy4q8Ub0LTlcrtjsHB2c9YP_LLlHFZTcRmTwFBUoi5OI96pRoxYRwGjzLdoz3OVcGNJJgFWOjzgjkbe3Eyf9rIPgxwqqZ7z71NmvKyTGcK_JDVYzP5N-SnMtlh3hxpRsjqCkOFF_Nk_lYgjz8ImXO4-UrxO-QrAHbxDgFUYv0vxTlk">
+</div>
+<div>
+<div class="font-data-lg text-primary text-[14px]">Alex Mercer</div>
+<div class="font-data-sm text-[10px] text-on-surface-variant">a.mercer@quantum.sys</div>
+</div>
+</td>
+<td class="px-6 py-4 font-data-sm text-data-sm">Operator Level 3</td>
+<td class="px-6 py-4">
+<span class="inline-block px-2 py-1 rounded-none bg-tertiary-fixed/10 border border-tertiary-fixed text-tertiary-fixed font-label-caps text-[10px]">ACTIVE</span>
+</td>
+<td class="px-6 py-4 font-data-sm text-data-sm">10 mins ago</td>
+<td class="px-6 py-4 text-right">
+<button class="text-on-surface-variant hover:text-primary transition-colors"><span class="material-symbols-outlined">more_vert</span></button>
+</td>
+</tr>
+<tr class="hover:bg-white/5 transition-colors cursor-pointer">
+<td class="px-6 py-4 flex items-center gap-3">
+<div class="w-8 h-8 rounded-full border border-white/10 overflow-hidden">
+<img alt="Sarah Chen" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBiu1u7Wb_glmgKDvCZsZh2_OsG4K1GiuFBV1rBGc9HR4Pqjqov4YYOC_KGqMZvsFJYtZ-MG1Q2LIk0y6KG2UkGPu3G0kg5XY8vYM1GVZUriGpyqL3XkuMNQtx7M6Iu4fEQWlP41R6na70HE4pz_DgIi7ldfuSpk2fz1uvQds_iSdKrrFiypCBauCEhuqG5JUuHfRqRdERj_36_sCw6MmvKIlLIFq6ClPKdEMf4FzxeKm4sGU_AsptxtLMYeNXxXNjqcmhesLoUUas">
+</div>
+<div>
+<div class="font-data-lg text-[14px]">Sarah Chen</div>
+<div class="font-data-sm text-[10px] text-on-surface-variant">s.chen@quantum.sys</div>
+</div>
+</td>
+<td class="px-6 py-4 font-data-sm text-data-sm">System Admin</td>
+<td class="px-6 py-4">
+<span class="inline-block px-2 py-1 rounded-none bg-secondary-container/10 border border-secondary-container text-secondary-container font-label-caps text-[10px]">PENDING</span>
+</td>
+<td class="px-6 py-4 font-data-sm text-data-sm">2 days ago</td>
+<td class="px-6 py-4 text-right">
+<button class="text-on-surface-variant hover:text-primary transition-colors"><span class="material-symbols-outlined">more_vert</span></button>
+</td>
+</tr>
+<!-- Extra rows for scrolling demonstration -->
+<tr class="hover:bg-white/5 transition-colors cursor-pointer">
+<td class="px-6 py-4 flex items-center gap-3">
+<div class="w-8 h-8 rounded-full border border-white/10 overflow-hidden bg-slate-800"></div>
+<div>
+<div class="font-data-lg text-[14px]">Marcus Thorne</div>
+<div class="font-data-sm text-[10px] text-on-surface-variant">m.thorne@quantum.sys</div>
+</div>
+</td>
+<td class="px-6 py-4 font-data-sm text-data-sm">Network Engineer</td>
+<td class="px-6 py-4">
+<span class="inline-block px-2 py-1 rounded-none bg-tertiary-fixed/10 border border-tertiary-fixed text-tertiary-fixed font-label-caps text-[10px]">ACTIVE</span>
+</td>
+<td class="px-6 py-4 font-data-sm text-data-sm">1 hour ago</td>
+<td class="px-6 py-4 text-right">
+<button class="text-on-surface-variant hover:text-primary transition-colors"><span class="material-symbols-outlined">more_vert</span></button>
+</td>
+</tr>
+<tr class="hover:bg-white/5 transition-colors cursor-pointer">
+<td class="px-6 py-4 flex items-center gap-3">
+<div class="w-8 h-8 rounded-full border border-white/10 overflow-hidden bg-slate-800"></div>
+<div>
+<div class="font-data-lg text-[14px]">Elena Rostova</div>
+<div class="font-data-sm text-[10px] text-on-surface-variant">e.rostova@quantum.sys</div>
+</div>
+</td>
+<td class="px-6 py-4 font-data-sm text-data-sm">Data Analyst</td>
+<td class="px-6 py-4">
+<span class="inline-block px-2 py-1 rounded-none bg-error/10 border border-error text-error font-label-caps text-[10px]">OFFLINE</span>
+</td>
+<td class="px-6 py-4 font-data-sm text-data-sm">5 days ago</td>
+<td class="px-6 py-4 text-right">
+<button class="text-on-surface-variant hover:text-primary transition-colors"><span class="material-symbols-outlined">more_vert</span></button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="p-4 border-t border-white/10 flex justify-between items-center bg-slate-900/40">
+<span class="font-data-sm text-data-sm text-on-surface-variant">Showing 1-4 of 1,492</span>
+<div class="flex gap-2">
+<button class="w-8 h-8 rounded-none border border-outline-variant flex items-center justify-center hover:bg-white/5 hover:text-primary transition-colors"><span class="material-symbols-outlined text-[16px]">chevron_left</span></button>
+<button class="w-8 h-8 rounded-none border border-primary text-primary flex items-center justify-center bg-primary/10 font-data-sm text-data-sm">1</button>
+<button class="w-8 h-8 rounded-none border border-outline-variant flex items-center justify-center hover:bg-white/5 hover:text-primary transition-colors font-data-sm text-data-sm">2</button>
+<button class="w-8 h-8 rounded-none border border-outline-variant flex items-center justify-center hover:bg-white/5 hover:text-primary transition-colors"><span class="material-symbols-outlined text-[16px]">chevron_right</span></button>
+</div>
+</div>
+</div>
+<!-- User Detail Sidebar: rows 1-8, cols 9-12 -->
+<div class="glass-panel p-6 relative corner-accent flex flex-col gap-6" style="grid-column: 9 / 13; grid-row: 1 / 9; overflow-y: auto;">
+<!-- Profile Header -->
+<div class="flex flex-col items-center text-center pb-6 border-b border-white/10 shrink-0">
+<div class="w-20 h-20 rounded-full border-2 border-primary overflow-hidden relative mb-4 shadow-[0_0_20px_rgba(0,218,243,0.4)]">
+<img alt="Alex Mercer Detail" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD2ZpJdxgzZJFSTerRsB0e7luBnEQOZjyZFj-ncDPXY8Z2VjcTLOGCuPUOcO5u7a-h251vWBl9zaRrrAJ2RutpbONznmdq-ChV4YjQZLbxZDRMMJfFPkmETpdzLJqIoL663ycF20LS_jNV-06vrlT__rNoN0-lrGYfUrk2DYpYt1qBSGMae637ouOLX-uA6IVZdypQIDO3RXCQkZDx9z3yK2WEQf64Dm7uRwxpcxycC4Rx30wv0ZS-047fFWhioRQIcvxv2JpMgXp4">
+</div>
+<h2 class="font-h1-display text-primary text-[22px] tracking-tight">Alex Mercer</h2>
+<p class="font-data-sm text-data-sm text-on-surface-variant mb-6 uppercase tracking-widest">Level 3 Operator • QTM-8942</p>
+<div class="flex gap-2 w-full">
+<button class="btn-special btn-dynamic-border flex-1 py-2 text-[11px]"><span class="relative z-10">EDIT PROFILE</span></button>
+<button class="btn-special flex-1 py-2 text-[11px]"><span class="relative z-10">SUSPEND</span></button>
+</div>
+</div>
+<!-- Stats Grid -->
+<div class="grid grid-cols-2 gap-4 shrink-0">
+<div class="bg-slate-900/50 p-3 border border-white/5 rounded-none">
+<div class="font-label-caps text-[10px] text-on-surface-variant mb-1 uppercase">Total Revenue</div>
+<div class="font-data-lg text-secondary">$1.24M</div>
+</div>
+<div class="bg-slate-900/50 p-3 border border-white/5 rounded-none">
+<div class="font-label-caps text-[10px] text-on-surface-variant mb-1 uppercase">Sessions</div>
+<div class="font-data-lg text-primary">8,492</div>
+</div>
+<div class="bg-slate-900/50 p-3 border border-white/5 rounded-none">
+<div class="font-label-caps text-[10px] text-on-surface-variant mb-1 uppercase">Data Load</div>
+<div class="font-data-lg text-primary">42.8 TB</div>
+</div>
+<div class="bg-slate-900/50 p-3 border border-white/5 rounded-none">
+<div class="font-label-caps text-[10px] text-on-surface-variant mb-1 uppercase">Risk Index</div>
+<div class="font-data-lg text-tertiary-fixed">0.02</div>
+</div>
+</div>
+<!-- Chart Placeholder -->
+<div class="min-h-[200px] flex-1 relative border border-white/5 rounded-none overflow-hidden shrink-0">
+<div class="h-full w-full hologram-effect flex items-center justify-center p-4">
+<svg class="w-full h-full" viewBox="0 0 100 100">
+<!-- Background Glow -->
+<defs>
+<filter height="140%" id="glow" width="140%" x="-20%" y="-20%">
+<feGaussianBlur result="blur" stdDeviation="2"></feGaussianBlur>
+<feComposite in="SourceGraphic" in2="blur" operator="over"></feComposite>
+</filter>
+<linearGradient id="cyan-grad" x1="0%" x2="100%" y1="0%" y2="100%">
+<stop offset="0%" stop-color="rgba(0, 218, 243, 0.6)"></stop>
+<stop offset="100%" stop-color="rgba(0, 218, 243, 0.1)"></stop>
+</linearGradient>
+<linearGradient id="blue-grad" x1="0%" x2="100%" y1="0%" y2="100%">
+<stop offset="0%" stop-color="rgba(39, 146, 255, 0.6)"></stop>
+<stop offset="100%" stop-color="rgba(39, 146, 255, 0.1)"></stop>
+</linearGradient>
+</defs>
+<!-- Concentric Rings -->
+<circle cx="50" cy="50" fill="none" r="45" stroke="rgba(0, 218, 243, 0.05)" stroke-width="0.5"></circle>
+<circle cx="50" cy="50" fill="none" r="35" stroke="rgba(0, 218, 243, 0.1)" stroke-width="0.5"></circle>
+<circle cx="50" cy="50" fill="none" r="25" stroke="rgba(0, 218, 243, 0.15)" stroke-width="0.5"></circle>
+<circle cx="50" cy="50" fill="none" r="15" stroke="rgba(0, 218, 243, 0.2)" stroke-width="0.5"></circle>
+<circle cx="50" cy="50" fill="none" r="5" stroke="rgba(0, 218, 243, 0.3)" stroke-width="0.5"></circle>
+<!-- Radial Spokes -->
+<g stroke="rgba(0, 218, 243, 0.1)" stroke-width="0.5">
+<line x1="50" x2="50" y1="5" y2="95"></line>
+<line x1="5" x2="95" y1="50" y2="50"></line>
+<line x1="18" x2="82" y1="18" y2="82"></line>
+<line x1="18" x2="82" y1="82" y2="18"></line>
+</g>
+<!-- Data Segments -->
+<g filter="url(#glow)">
+<!-- Segment 1: Cyan High -->
+<path d="M50 50 L50 10 A40 40 0 0 1 78.3 21.7 Z" fill="url(#cyan-grad)" stroke="#00daf3" stroke-linejoin="round" stroke-width="1"></path>
+<!-- Segment 2: Cyan Med -->
+<path d="M50 50 L78.3 21.7 A40 40 0 0 1 90 50 L50 50" fill="rgba(0, 218, 243, 0.2)" opacity="0.7" stroke="#00daf3" stroke-width="1"></path>
+<!-- Segment 3: Blue Large -->
+<path d="M50 50 L90 50 A40 40 0 0 1 50 90 L50 50" fill="url(#blue-grad)" stroke="#2792ff" stroke-width="1"></path>
+<!-- Segment 4: Blue Med-Left -->
+<path d="M50 50 L50 90 A40 40 0 0 1 21.7 78.3 L50 50" fill="rgba(39, 146, 255, 0.2)" stroke="#2792ff" stroke-width="1"></path>
+<!-- Segment 5: Cyan Peak-Left -->
+<path d="M50 50 L21.7 78.3 A40 40 0 0 1 10 50 A40 40 0 0 1 50 10 L50 50" fill="rgba(0, 218, 243, 0.1)" stroke="#00daf3" stroke-dasharray="2 1" stroke-width="1"></path>
+</g>
+<!-- Center Point -->
+<circle cx="50" cy="50" fill="#00daf3" filter="url(#glow)" r="1.5"></circle>
+</svg>
+</div>
+<div class="absolute top-2 left-2 font-label-caps text-[9px] bg-slate-950/80 px-2 py-1 rounded-none border border-white/10 uppercase tracking-tighter">30D Metrics</div>
+</div>
+<!-- Activity -->
+<div class="shrink-0">
+<h4 class="font-label-caps text-[11px] border-b border-white/10 pb-2 mb-4 uppercase tracking-widest text-on-surface-variant">Recent Activity</h4>
+<div class="space-y-4 relative before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-[2px] before:bg-white/5">
+<div class="flex gap-4 relative">
+<div class="w-[24px] h-[24px] rounded-full bg-slate-950 border-2 border-primary flex items-center justify-center z-10 shrink-0">
+<div class="w-1.5 h-1.5 bg-primary rounded-full"></div>
+</div>
+<div>
+<p class="font-body-md text-[12px] leading-tight mb-1 text-on-surface">Deployed protocol <span class="text-primary font-bold">v2.0.4</span></p>
+<p class="font-data-sm text-[10px] text-on-surface-variant">10 mins ago</p>
+</div>
+</div>
+<div class="flex gap-4 relative opacity-60">
+<div class="w-[24px] h-[24px] rounded-full bg-slate-950 border-2 border-white/20 flex items-center justify-center z-10 shrink-0">
+</div>
+<div>
+<p class="font-body-md text-[12px] leading-tight mb-1 text-on-surface">Node access: Restricted</p>
+<p class="font-data-sm text-[10px] text-on-surface-variant">2 hours ago</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+
+
+</body></html>

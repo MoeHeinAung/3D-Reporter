@@ -15,6 +15,7 @@
 
 // Layer 3: Components (order matters for cascade)
 @use 'components/animations';
+@use 'components/background';
 @use 'components/grid';
 @use 'components/card';
 @use 'components/navbar';

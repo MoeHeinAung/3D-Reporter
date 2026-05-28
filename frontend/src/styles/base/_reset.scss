@@ -25,7 +25,11 @@ body {
 
 // Root background
 body {
-  background: var(--color-bg-root);
+  background-image:
+    linear-gradient(var(--grid-line-color) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-line-color) 1px, transparent 1px);
+  background-size: var(--grid-cell-size) var(--grid-cell-size);
+  background-color: var(--color-bg-root);
   color: var(--color-text-primary);
   font-family: var(--font-body);
   font-size: var(--text-base);
