@@ -23,3 +23,26 @@ class OffloadedRepository(BaseRepository[Offloaded]):
                 Offloaded.master_dealer_id == master_dealer_id
             ).all()
         )
+
+    def get_ticket_totals(self, draw_id: int) -> list[tuple[str, int]]:
+        """Return (ticket, total_offloaded) pairs for a draw, grouped by ticket."""
+        from sqlalchemy import func
+
+        rows = (
+            self.session.query(Offloaded.ticket, func.sum(Offloaded.amount))
+            .filter(Offloaded.draw_id == draw_id)
+            .group_by(Offloaded.ticket)
+            .all()
+        )
+        return [(str(row[0]), int(row[1])) for row in rows]
+
+    def get_max_page_no(self, draw_id: int) -> int:
+        """Return the highest page_no for a draw, or 0 if no offloads exist."""
+        from sqlalchemy import func
+
+        result = (
+            self.session.query(func.coalesce(func.max(Offloaded.page_no), 0))
+            .filter(Offloaded.draw_id == draw_id)
+            .scalar()
+        )
+        return int(result)

@@ -18,6 +18,11 @@ import type {
   WinningTicketResult,
   DeleteResult,
   PartnerResult,
+  TicketRisk,
+  RiskBreakdown,
+  OffloadConfig,
+  OffloadRecord,
+  OffloadResult,
 } from '../types'
 import type { Agent, MasterDealer } from '../types'
 
@@ -60,6 +65,11 @@ interface PywebviewAPI {
   delete_master_dealer(dealer_id: string): Promise<DeleteResult | ApiError>
   get_sales_by_draw(draw_id: number): Promise<SaleRecord[] | ApiError>
   get_or_create_batch(draw_id: number, agent_id: string): Promise<BatchInfo | ApiError>
+  get_risk_breakdown(draw_id: number): Promise<RiskBreakdown | ApiError>
+  create_offload(draw_id: number, master_dealer_id: string, entries_json: string, page_no: number, note?: string): Promise<OffloadResult | ApiError>
+  get_offload_history(draw_id: number): Promise<OffloadRecord[] | ApiError>
+  get_offload_config(): Promise<OffloadConfig | ApiError>
+  update_offload_config(key: string, value: string): Promise<{ ok: boolean } | ApiError>
 }
 
 // ---------------------------------------------------------------------------
@@ -79,6 +89,9 @@ interface MockState {
   _nextSaleId: number
   _nextBatchId: number
   _mockBatches: Array<{ id: number; drawId: number; agentId: string; totalAmount: number }>
+  _mockOffloads: OffloadRecord[]
+  _nextOffloadId: number
+  _mockOffloadConfig: OffloadConfig
 }
 
 // ---------------------------------------------------------------------------
@@ -200,6 +213,14 @@ function getAPI(): PywebviewAPI {
     _nextSaleId: 1,
     _nextBatchId: 1,
     _mockBatches: [] as Array<{ id: number; drawId: number; agentId: string; totalAmount: number }>,
+    _mockOffloads: [] as OffloadRecord[],
+    _nextOffloadId: 1,
+    _mockOffloadConfig: {
+      adminHold: 5000,
+      maxOffloadAmount: 500000,
+      maxOffloadTicket: 60,
+      offloadPageNumber: 1,
+    },
 
     async get_all_draws(this: MockState) {
       return [...this._mockDraws].reverse()
@@ -321,6 +342,92 @@ function getAPI(): PywebviewAPI {
         this._mockBatches.push(batch)
       }
       return { id: batch.id, drawId: batch.drawId, agentId: batch.agentId }
+    },
+
+    // -- Offload / Risk --
+
+    async get_risk_breakdown(this: MockState, draw_id: number) {
+      const sales = this._mockSales.filter((s) => s.drawId === draw_id)
+      const offloads = this._mockOffloads.filter((o) => o.drawId === draw_id)
+      const blocked = this._mockBlacklist
+        .filter((b) => b.drawId === draw_id && b.type === 'BLOCK')
+        .map((b) => b.ticket)
+
+      // Aggregate sales by ticket
+      const ticketMap = new Map<string, { totalSales: number; offloaded: number }>()
+      for (const s of sales) {
+        const entry = ticketMap.get(s.ticket) || { totalSales: 0, offloaded: 0 }
+        entry.totalSales += s.amount
+        ticketMap.set(s.ticket, entry)
+      }
+      for (const o of offloads) {
+        const entry = ticketMap.get(o.ticket) || { totalSales: 0, offloaded: 0 }
+        entry.offloaded += o.amount
+        ticketMap.set(o.ticket, entry)
+      }
+
+      const allTickets: TicketRisk[] = []
+      for (const [ticket, data] of ticketMap) {
+        const effectiveHold = blocked.includes(ticket) ? 0 : this._mockOffloadConfig.adminHold
+        const holding = Math.min(data.totalSales, effectiveHold)
+        const pending = Math.max(data.totalSales - effectiveHold - data.offloaded, 0)
+        allTickets.push({
+          ticket,
+          totalSales: data.totalSales,
+          holding,
+          offloaded: data.offloaded,
+          pending,
+          isBlocked: blocked.includes(ticket),
+        })
+      }
+
+      return {
+        holding: allTickets.filter((t) => t.pending === 0 && t.offloaded === 0),
+        offloaded: allTickets.filter((t) => t.offloaded > 0),
+        pending: allTickets
+          .filter((t) => t.pending > 0)
+          .sort((a, b) => b.pending - a.pending)
+          .slice(0, this._mockOffloadConfig.maxOffloadTicket),
+      }
+    },
+
+    async create_offload(this: MockState, draw_id: number, master_dealer_id: string, entries_json: string, page_no: number, note?: string) {
+      const entries: Array<{ ticket: string; amount: number }> = JSON.parse(entries_json)
+      const records: Array<{ id: number; ticket: string; amount: number; pageNo: number; masterDealerId: string }> = []
+      for (const entry of entries) {
+        const record: OffloadRecord = {
+          id: this._nextOffloadId++,
+          drawId: draw_id,
+          masterDealerId: master_dealer_id,
+          pageNo: page_no,
+          ticket: entry.ticket,
+          amount: entry.amount,
+          note: note ?? null,
+          createdAt: new Date().toISOString(),
+        }
+        this._mockOffloads.push(record)
+        records.push({ id: record.id, ticket: record.ticket, amount: record.amount, pageNo: record.pageNo, masterDealerId: record.masterDealerId })
+      }
+      return { records, count: records.length }
+    },
+
+    async get_offload_history(this: MockState, draw_id: number) {
+      return this._mockOffloads
+        .filter((o) => o.drawId === draw_id)
+        .sort((a, b) => b.id - a.id)
+    },
+
+    async get_offload_config(this: MockState) {
+      return { ...this._mockOffloadConfig }
+    },
+
+    async update_offload_config(this: MockState, key: string, value: string) {
+      const numValue = parseInt(value, 10)
+      if (key === 'adminHold') this._mockOffloadConfig.adminHold = numValue
+      else if (key === 'maxOffloadAmount') this._mockOffloadConfig.maxOffloadAmount = numValue
+      else if (key === 'maxOffloadTicket') this._mockOffloadConfig.maxOffloadTicket = numValue
+      else if (key === 'offloadPageNumber') this._mockOffloadConfig.offloadPageNumber = numValue
+      return { ok: true }
     },
 
     async echo(message: string) {

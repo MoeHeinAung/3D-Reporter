@@ -88,6 +88,44 @@ export interface PartnerResult {
   name: string
 }
 
+export interface TicketRisk {
+  ticket: string
+  totalSales: number
+  holding: number
+  offloaded: number
+  pending: number
+  isBlocked: boolean
+}
+
+export interface RiskBreakdown {
+  holding: TicketRisk[]
+  offloaded: TicketRisk[]
+  pending: TicketRisk[]
+}
+
+export interface OffloadConfig {
+  adminHold: number
+  maxOffloadAmount: number
+  maxOffloadTicket: number
+  offloadPageNumber: number
+}
+
+export interface OffloadRecord {
+  id: number
+  drawId: number
+  masterDealerId: string
+  pageNo: number
+  ticket: string
+  amount: number
+  note: string | null
+  createdAt: string
+}
+
+export interface OffloadResult {
+  records: Array<{ id: number; ticket: string; amount: number; pageNo: number; masterDealerId: string }>
+  count: number
+}
+
 /** Type guard: true if the result is an ApiError. */
 export function isApiError(result: unknown): result is ApiError {
   return typeof result === 'object' && result !== null && 'error' in result

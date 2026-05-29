@@ -18,11 +18,13 @@ from typing import Any, Callable
 from sqlalchemy.exc import IntegrityError
 
 from backend.database.connection import get_session
+from backend.database.models import Preference
 from backend.errors import AppError
 from backend.services.agent_service import AgentService
 from backend.services.blacklist_service import BlacklistService
 from backend.services.draw_service import DrawService
 from backend.services.master_dealer_service import MasterDealerService
+from backend.services.offload_service import OffloadService
 from backend.services.risk_service import RiskService
 from backend.services.sales_service import SalesService
 from backend.services.system_service import SystemService
@@ -316,6 +318,97 @@ class API:
         return self._with_session(_do)
 
     # ------------------------------------------------------------------
+    # Offload / Risk
+    # ------------------------------------------------------------------
+
+    def get_risk_breakdown(self, draw_id: int) -> dict[str, Any]:
+        def _do(s: Any) -> dict[str, Any]:
+            config = self._read_offload_config(s)
+            breakdown = OffloadService(s).get_risk_breakdown(
+                draw_id, config["admin_hold"], config["max_offload_ticket"]
+            )
+            def _ticket_risk(t: Any) -> dict[str, Any]:
+                return {
+                    "ticket": t.ticket,
+                    "totalSales": t.total_sales,
+                    "holding": t.holding,
+                    "offloaded": t.offloaded,
+                    "pending": t.pending,
+                    "isBlocked": t.is_blocked,
+                }
+            return {
+                "holding": [_ticket_risk(t) for t in breakdown.holding],
+                "offloaded": [_ticket_risk(t) for t in breakdown.offloaded],
+                "pending": [_ticket_risk(t) for t in breakdown.pending],
+            }
+        return self._with_session(_do)
+
+    def create_offload(
+        self, draw_id: int, master_dealer_id: str, entries_json: str,
+        page_no: int, note: str | None = None
+    ) -> dict[str, Any]:
+        def _do(s: Any) -> dict[str, Any]:
+            config = self._read_offload_config(s)
+            entries = json.loads(entries_json)
+            records = OffloadService(s).create_offload(
+                draw_id, master_dealer_id, entries, page_no,
+                admin_hold=config["admin_hold"], note=note,
+            )
+            return {
+                "records": [
+                    {
+                        "id": r.id, "ticket": r.ticket, "amount": r.amount,
+                        "pageNo": r.page_no, "masterDealerId": r.master_dealer_id,
+                    }
+                    for r in records
+                ],
+                "count": len(records),
+            }
+        return self._with_session(_do)
+
+    def get_offload_history(self, draw_id: int) -> list[dict[str, Any]]:
+        def _do(s: Any) -> list[dict[str, Any]]:
+            records = OffloadService(s).get_offload_history(draw_id)
+            return [
+                {
+                    "id": r.id,
+                    "drawId": r.draw_id,
+                    "masterDealerId": r.master_dealer_id,
+                    "pageNo": r.page_no,
+                    "ticket": r.ticket,
+                    "amount": r.amount,
+                    "note": r.note,
+                    "createdAt": r.created_at,
+                }
+                for r in records
+            ]
+        return self._with_session(_do)
+
+    def get_offload_config(self) -> dict[str, Any]:
+        def _do(s: Any) -> dict[str, Any]:
+            return self._read_offload_config(s)
+        return self._with_session(_do)
+
+    def update_offload_config(self, key: str, value: str) -> dict[str, Any]:
+        def _do(s: Any) -> dict[str, Any]:
+            valid_keys = {"admin_hold", "max_offload_amount", "max_offload_ticket", "offload_page_number"}
+            if key not in valid_keys:
+                return {"error": f"Unknown config key {key!r}. Valid keys: {valid_keys}"}
+            # Validate integer values
+            if key in ("admin_hold", "max_offload_amount", "max_offload_ticket", "offload_page_number"):
+                try:
+                    int(value)
+                except ValueError:
+                    return {"error": f"Value for {key!r} must be an integer."}
+            pref = s.get(Preference, key)
+            if pref:
+                pref.value = value
+            else:
+                s.add(Preference(key=key, value=value))
+            return {"ok": True, "key": key, "value": value}
+        return self._with_session(_do)
+
+    # ------------------------------------------------------------------
     # Command / Action
     # ------------------------------------------------------------------
 
@@ -331,6 +424,20 @@ class API:
     # ------------------------------------------------------------------
     # Session helper
     # ------------------------------------------------------------------
+
+    def _read_offload_config(self, session: Any) -> dict[str, Any]:
+        """Read offload configuration from preferences with defaults."""
+        defaults = {
+            "admin_hold": "5000",
+            "max_offload_amount": "500000",
+            "max_offload_ticket": "60",
+            "offload_page_number": "1",
+        }
+        result: dict[str, Any] = {}
+        for key, default_val in defaults.items():
+            pref = session.get(Preference, key)
+            result[key] = int(pref.value) if pref else int(default_val)
+        return result
 
     def _with_session(self, fn: Callable, default: Any = None) -> Any:
         """Execute *fn* inside a transactional session.

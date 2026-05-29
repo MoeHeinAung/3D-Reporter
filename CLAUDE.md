@@ -98,6 +98,15 @@ cd frontend && npx tsc --noEmit        # Type checking
 
 ## Mandatory Protocols
 
+### 0. Task Planning (ALWAYS FIRST)
+
+Before writing any code for a non-trivial task, you MUST:
+1. Read `Docs/CURRENT_TASK.md` to understand the current task and its status.
+2. Update `Docs/CURRENT_TASK.md` with the implementation plan (steps, files to create/modify, architectural decisions).
+3. Mark each step as `[x]` when completed. Keep the status section at the top in sync.
+
+**Never write code without an up-to-date CURRENT_TASK.md.** This ensures the user can see what you're doing and track progress.
+
 ### 1. Error Resolution Protocol
 
 Before proposing a fix for any error or bug, first consult `Docs/Incident_Log.md` and `Docs/KNOWN_ERRORS.md` to check for existing patterns or prior occurrences. Ensure the solution prevents recurrence. After resolving the error, collect relevant diagnostic information and update `Docs/Incident_Log.md` with a new entry following the established format (symptom, root cause, resolution, files affected).

@@ -58,6 +58,7 @@ export interface Offloaded {
   ticket: string
   amount: number
   note: string | null
+  createdAt: string
 }
 
 export interface BlacklistTicket {

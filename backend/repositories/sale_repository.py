@@ -29,3 +29,15 @@ class SaleRepository(BaseRepository[Sale]):
             .order_by(Sale.id.desc())
             .all()
         )
+
+    def get_ticket_totals(self, draw_id: int) -> list[tuple[str, int]]:
+        """Return (ticket, total_amount) pairs for a draw, grouped by ticket."""
+        from sqlalchemy import func
+
+        rows = (
+            self.session.query(Sale.ticket, func.sum(Sale.amount))
+            .filter(Sale.draw_id == draw_id)
+            .group_by(Sale.ticket)
+            .all()
+        )
+        return [(str(row[0]), int(row[1])) for row in rows]

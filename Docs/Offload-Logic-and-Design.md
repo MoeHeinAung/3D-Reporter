@@ -49,7 +49,7 @@ The system prioritizes offloading based on **descending pending liability**. Tic
 
 ### The "KALAW" Template
 - **Aesthetic:** High-fidelity simulation of a professional, monospaced physical ledger.
-- **Typography:** Uses `Space Grotesk` for numerical data and currency to ensure readability and alignment.
+- **Typography:** Uses `Instrument` for numerical data and currency to ensure readability and alignment.
 - **Structural Layout:**
     - Header: Large "KALAW" brand mark, draw date, and auto-incrementing page number.
     - Body: 4-column grid with alternating row highlights (`bg-black/[0.015]`).
@@ -72,7 +72,6 @@ The system prioritizes offloading based on **descending pending liability**. Tic
 ### Operational Bridge
 - **Technology:** `pywebview` Bridge API.
 - **Interaction:** Frontend calls `create_offload(draw_id, master_dealer_id, input_text, notes)`.
-- **Serialization:** Offload data is serialized as a string format (`123 = 5000\n456 = 2000`) before being sent to Python to utilize the centralized `TicketParser`.
 
 ### Backend Components
 - **`OffloadService`:** Handles database persistence and aggregation for history views.
@@ -86,4 +85,3 @@ The system prioritizes offloading based on **descending pending liability**. Tic
 ### External Libraries
 - **`html2canvas`:** Critical for generating the "KALAW" PNG artifacts.
 - **`lucide-react`:** Provides the visual iconography for the Risk Management interface.
-- **`tailwind-merge` & `clsx`:** Manage the complex conditional styling of the ledger grid.
