@@ -79,6 +79,9 @@ This document serves as a strategic reference for common errors, logical issues,
 *   **Database Views Never Installed**
     *   **Context:** `views.sql` defines `v_current_draw_ticket_sales` and `v_current_draw_ticket_offloads` — views that join against the OPEN draw for risk calculations. The file existed but was never referenced by any Python code.
     *   **Resolution:** `init_db()` in `connection.py` now reads and executes `views.sql` after `create_all()`. Each statement is split on `;` and executed individually via a raw connection.
+*   **Database View Installation Not Idempotent**
+    *   **Context:** `views.sql` used bare `CREATE VIEW` statements. On the first startup this succeeds (no views exist), but on every subsequent startup it crashes with `sqlite3.OperationalError: view ... already exists`. The `init_db()` docstring claims the function is "idempotent — safe to call on every startup," but `_install_views()` violated that contract.
+    *   **Resolution:** Use `CREATE VIEW IF NOT EXISTS` for all views in `views.sql`. This is the SQLite-compatible idempotent form (SQLite does not support `CREATE OR REPLACE VIEW`). Any view definition change that requires a schema update should be handled via migration scripts, not by crashing on startup.
 *   **Missing UNIQUE Constraint on Batch**
     *   **Context:** The business rule "one batch per draw per agent" was enforced only by `get_or_create_batch()`'s lookup-then-create pattern, which is vulnerable to race conditions under concurrent access.
     *   **Resolution:** Add `UniqueConstraint("draw_id", "agent_id", name="uq_batch_draw_agent")` to the Batch model. SQLAlchemy will create the constraint on next `create_all()`. On existing databases, check for duplicate `(draw_id, agent_id)` pairs before migrating.

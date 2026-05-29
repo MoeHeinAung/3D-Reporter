@@ -1,5 +1,5 @@
 // ============================================================================
-// TYPOGRAPHY — "Futuristic Precision"
+// TYPOGRAPHY — "Nexus Terminal"
 // Google Fonts: Tektur (headings), Instrument Sans (body), JetBrains Mono (telemetry)
 // Modular scale: 1.25 — from Docs/UI-Design-system.md §1.3
 // ============================================================================
@@ -25,8 +25,12 @@
   }
 }
 
+// Data display sizes
+.data-xxs { font-size: 0.56rem; }
+.data-xxl { font-size: 4.5rem; }
+
 // ---- Structural Headers (HUD-style) ----
-// Tektur, UPPERCASE, 0.05em tracking, geometric
+// Tektur, UPPERCASE, 0.08em tracking, geometric
 
 h1, h2, h3, h4,
 .h1, .h2, .h3, .h4 {
@@ -35,12 +39,33 @@ h1, h2, h3, h4,
   letter-spacing: var(--tracking-heading);
   text-transform: uppercase;
   line-height: var(--leading-tight);
+  text-rendering: optimizeLegibility;
 }
 
 h1, .h1 { font-size: var(--text-4xl); }
 h2, .h2 { font-size: var(--text-3xl); }
 h3, .h3 { font-size: var(--text-2xl); }
 h4, .h4 { font-size: var(--text-xl); }
+
+// ---- HUD Label — Compact data label ----
+.hud-label {
+  font-family: var(--font-heading);
+  font-stretch: 75%;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+}
+
+// ---- HUD Value — Monospace data display with glow ----
+.hud-value {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: var(--tracking-mono);
+  text-shadow: 0 0 4px rgba(0, 229, 255, 0.3);
+}
 
 // ---- Body / Narrative ----
 // Instrument Sans — humanist sans-serif for labels and text
@@ -67,7 +92,9 @@ body,
   font-family: var(--font-mono);
   font-weight: 500;
   letter-spacing: var(--tracking-mono);
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: tabular-nums slashed-zero;
+  font-feature-settings: "calt" 0, "liga" 0;
+  text-shadow: 0 0 4px rgba(0, 229, 255, 0.3);
 }
 
 .telemetry-lg { font-size: var(--text-xl); }
@@ -94,6 +121,20 @@ body,
 .text-muted      { color: var(--color-text-muted); }
 .text-accent     { color: var(--color-primary); }
 .text-error      { color: var(--color-error); }
+
+// ---- Text Glow Utilities ----
+
+.text-glow-primary {
+  text-shadow: 0 0 8px rgba(0, 229, 255, 0.5);
+}
+
+.text-glow-secondary {
+  text-shadow: 0 0 8px rgba(168, 85, 247, 0.5);
+}
+
+.text-glow-error {
+  text-shadow: 0 0 8px rgba(255, 51, 102, 0.5);
+}
 
 // ---- Weight Utilities ----
 

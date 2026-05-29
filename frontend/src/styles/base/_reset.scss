@@ -23,12 +23,14 @@ body {
   text-rendering: optimizeLegibility;
 }
 
-// Root background
+// Root background — dual-scale grid + vignette
 body {
   background-image:
-    linear-gradient(var(--grid-line-color) 1px, transparent 1px),
-    linear-gradient(90deg, var(--grid-line-color) 1px, transparent 1px);
-  background-size: var(--grid-cell-size) var(--grid-cell-size);
+    linear-gradient(rgba(0, 229, 255, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 229, 255, 0.06) 1px, transparent 1px);
+  background-size:
+    calc(var(--grid-cell-size) * 4) calc(var(--grid-cell-size) * 4),
+    var(--grid-cell-size) var(--grid-cell-size);
   background-color: var(--color-bg-root);
   color: var(--color-text-primary);
   font-family: var(--font-body);
@@ -89,16 +91,18 @@ table {
 :focus-visible {
   outline: 2px solid var(--color-primary);
   outline-offset: 2px;
+  box-shadow: 0 0 4px var(--color-accent-glow);
 }
 
 // Remove focus ring for mouse users
 :focus:not(:focus-visible) {
   outline: none;
+  box-shadow: none;
 }
 
 // Selection highlight
 ::selection {
-  background: rgba(0, 240, 255, 0.25);
+  background: rgba(0, 229, 255, 0.2);
   color: var(--color-text-primary);
 }
 

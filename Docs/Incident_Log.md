@@ -41,6 +41,13 @@ This document records every error encountered during development, organized chro
 - **Resolution:** Added `_install_views()` helper that reads `views.sql` and executes its statements. Called in `init_db()` after `create_all()`. Also added `PRAGMA journal_mode=WAL` in `init_db()`.
 - **Files:** `backend/database/connection.py`
 
+### INC-018: `CREATE VIEW` fails on second startup because view already exists
+
+- **Symptom:** `python main.py` crashes with `sqlite3.OperationalError: view v_current_draw_ticket_sales already exists` on the second and subsequent startups. The first startup succeeds because no views exist yet.
+- **Root Cause:** `_install_views()` in `connection.py` executes the raw SQL from `views.sql` which uses bare `CREATE VIEW` statements. On first run the views are created; on subsequent runs the statements fail because the views already exist in the database. `CREATE VIEW` has no `OR REPLACE` semantics in SQLite without `IF NOT EXISTS`.
+- **Resolution:** Changed `CREATE VIEW` to `CREATE VIEW IF NOT EXISTS` for both `v_current_draw_ticket_sales` and `v_current_draw_ticket_offloads` in `views.sql`. This makes `_install_views()` truly idempotent, matching `init_db()`'s documented contract.
+- **Files:** `backend/database/views.sql`
+
 ### INC-017: N+1 queries in ReportService causing excessive database round-trips
 
 - **Symptom:** Report generation was slow for draws with many agents and winning tickets.

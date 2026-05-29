@@ -1,20 +1,20 @@
 // ============================================================================
-// ANIMATIONS — "Futuristic Precision" vibe
-// Scanner lines, hologram pulses, digital ping — from Docs/UI-Design-system.md §4
+// ANIMATIONS — "Nexus Terminal"
+// Scanner lines, hologram pulses, digital ping, and new micro-interactions.
 // ============================================================================
 
 // ---- Scanner Line ----
-// Slow vertical pulse across loading panels
+// Faster vertical pulse across loading panels — narrower, brighter at peak
 @keyframes scanline {
   0% {
     transform: translateY(-100%);
     opacity: 0;
   }
   10% {
-    opacity: 0.6;
+    opacity: 0.7;
   }
   90% {
-    opacity: 0.6;
+    opacity: 0.7;
   }
   100% {
     transform: translateY(100%);
@@ -33,9 +33,9 @@
     background: linear-gradient(
       to bottom,
       transparent 0%,
-      rgba(0, 240, 255, 0.04) 45%,
-      rgba(0, 240, 255, 0.12) 50%,
-      rgba(0, 240, 255, 0.04) 55%,
+      rgba(0, 229, 255, 0.02) 40%,
+      rgba(0, 229, 255, 0.15) 50%,
+      rgba(0, 229, 255, 0.02) 60%,
       transparent 100%
     );
     animation: scanline var(--duration-scanner) ease-in-out infinite;
@@ -45,13 +45,13 @@
 }
 
 // ---- Hologram Pulse ----
-// Subtle opacity cycle on active risk cards
+// Subtle opacity cycle — subdued range for sophistication
 @keyframes pulse-hologram {
   0%, 100% {
     opacity: 1;
   }
   50% {
-    opacity: 0.85;
+    opacity: 0.95;
   }
 }
 
@@ -60,22 +60,22 @@
 }
 
 // ---- Digital Ping ----
-// Button scale + flash on click
+// Button scale + flash on click with subtle rotation
 @keyframes digital-ping {
   0% {
-    transform: scale(1);
-    box-shadow: 0 0 0 0 rgba(0, 240, 255, 0.5);
+    transform: scale(1) rotate(0deg);
+    box-shadow: 0 0 0 0 rgba(0, 229, 255, 0.5);
   }
   30% {
-    transform: scale(0.96);
+    transform: scale(0.96) rotate(0.15deg);
   }
   60% {
-    transform: scale(1.02);
-    box-shadow: 0 0 0 8px rgba(0, 240, 255, 0);
+    transform: scale(1.02) rotate(-0.15deg);
+    box-shadow: 0 0 0 8px rgba(0, 229, 255, 0);
   }
   100% {
-    transform: scale(1);
-    box-shadow: 0 0 0 0 rgba(0, 240, 255, 0);
+    transform: scale(1) rotate(0deg);
+    box-shadow: 0 0 0 0 rgba(0, 229, 255, 0);
   }
 }
 
@@ -99,11 +99,11 @@
 @keyframes fade-in-up {
   from {
     opacity: 0;
-    transform: translateY(8px);
+    transform: scale(0.98) translateY(8px);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: scale(1) translateY(0);
   }
 }
 
@@ -119,24 +119,136 @@
 }
 
 // ---- Glitch (on hover for critical data) ----
+// Color-shift RGB split for authentic glitch effect
 @keyframes glitch {
   0%, 100% {
     transform: translate(0);
+    text-shadow: none;
   }
   20% {
     transform: translate(-1px, 1px);
+    text-shadow: 1px 0 var(--color-error), -1px 0 var(--color-primary);
   }
   40% {
     transform: translate(1px, -1px);
+    text-shadow: -1px 0 var(--color-error), 1px 0 var(--color-primary);
   }
   60% {
     transform: translate(-1px, -1px);
+    text-shadow: 1px 0 var(--color-primary), -1px 0 var(--color-error);
   }
   80% {
     transform: translate(1px, 1px);
+    text-shadow: -1px 0 var(--color-primary), 1px 0 var(--color-error);
   }
 }
 
 .glitch-hover:hover {
   animation: glitch 150ms steps(2) infinite;
+}
+
+// ---- Border Chase ----
+// Animated border "circuit trace" effect traveling around perimeter
+@keyframes border-chase {
+  0% {
+    stroke-dashoffset: 0;
+  }
+  100% {
+    stroke-dashoffset: -400;
+  }
+}
+
+.border-chase {
+  position: relative;
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 3;
+    border: 1px solid transparent;
+    border-image: linear-gradient(90deg, var(--color-primary), transparent 50%, var(--color-primary)) 1;
+    animation: border-chase 3s linear infinite;
+  }
+}
+
+// ---- Glow Breathe ----
+// Subtle pulsing glow for active/processing states
+@keyframes glow-breathe {
+  0%, 100% {
+    box-shadow: 0 0 4px rgba(0, 229, 255, 0.3), 0 0 12px rgba(0, 229, 255, 0.1);
+  }
+  50% {
+    box-shadow: 0 0 8px rgba(0, 229, 255, 0.5), 0 0 24px rgba(0, 229, 255, 0.2);
+  }
+}
+
+.glow-breathe {
+  animation: glow-breathe 3s ease-in-out infinite;
+}
+
+// ---- Data Stream ----
+// Vertical line particles for loading/processing states
+@keyframes data-stream {
+  0% {
+    background-position: 0% 0%;
+  }
+  100% {
+    background-position: 0% 200%;
+  }
+}
+
+.data-stream {
+  background-image: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 4px,
+    rgba(0, 229, 255, 0.08) 4px,
+    rgba(0, 229, 255, 0.08) 6px
+  );
+  background-size: 100% 12px;
+  animation: data-stream 2s linear infinite;
+}
+
+// ---- Ripple ----
+// Click feedback expanding ring
+@keyframes ripple {
+  0% {
+    transform: scale(0);
+    opacity: 0.6;
+  }
+  100% {
+    transform: scale(3);
+    opacity: 0;
+  }
+}
+
+// ---- Page Transition ----
+// Route transition fade effect
+@keyframes page-enter {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.page-enter {
+  animation: page-enter var(--duration-normal) var(--ease-out-expo) forwards;
+}
+
+// Staggered card entrance for page loads
+.stagger-cards {
+  .card {
+    opacity: 0;
+    animation: fade-in-up var(--duration-normal) var(--ease-out-expo) forwards;
+
+    @for $i from 1 through 12 {
+      &:nth-child(#{$i}) {
+        animation-delay: calc(#{$i - 1} * 50ms);
+      }
+    }
+  }
 }

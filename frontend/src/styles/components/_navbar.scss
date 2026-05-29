@@ -1,10 +1,16 @@
 // ============================================================================
-// COMMAND NAVBAR — Docs/Navbar-and-background-reference.html
+// COMMAND NAVBAR — "Nexus Terminal"
 // 48px fixed-height bar with frosted background, subtle bottom border.
 // Center trapezoid logo overflows the bar. Left/right nav link sections.
 // ============================================================================
 
 @use '../abstracts/mixins' as *;
+
+// Status indicator breathing animation
+@keyframes status-breathe {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
 
 .navbar {
   position: relative;
@@ -13,10 +19,11 @@
   height: var(--navbar-height);
   flex-shrink: 0;
   padding: 0 var(--space-6);
-  background: var(--navbar-bg);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: var(--color-navbar-bg);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border-bottom: 1px solid var(--navbar-border);
+  box-shadow: 0 1px 0 rgba(0, 229, 255, 0.08);
   z-index: var(--z-sticky);
 
   // ---- Left Nav Links ----
@@ -47,6 +54,7 @@
   }
 
   &__link {
+    position: relative;
     display: flex;
     align-items: center;
     height: 100%;
@@ -54,9 +62,11 @@
     font-size: 12px;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.1em;
+    letter-spacing: 0.12em;
     color: var(--color-text-secondary);
-    transition: color var(--duration-fast) var(--ease-out-expo);
+    transition:
+      color var(--duration-fast) var(--ease-out-expo),
+      text-shadow var(--duration-fast) var(--ease-out-expo);
     padding-top: 14px;
     padding-bottom: 14px;
     border-bottom: 2px solid transparent;
@@ -64,12 +74,27 @@
     &:hover {
       color: var(--color-primary);
       text-decoration: none;
+      text-shadow: 0 0 8px rgba(0, 229, 255, 0.3);
     }
 
     &--active {
       color: var(--color-primary);
       border-bottom-color: var(--color-primary);
+      text-shadow: 0 0 8px rgba(0, 229, 255, 0.4);
     }
+  }
+
+  // Separator dots between nav links
+  &__nav > &:not(:last-child) &__link::after {
+    content: '';
+    position: absolute;
+    right: calc(-1 * var(--space-8) / 2);
+    top: 50%;
+    transform: translate(50%, -50%);
+    width: 3px;
+    height: 3px;
+    background: rgba(0, 229, 255, 0.3);
+    border-radius: 50%;
   }
 
   // ---- Center Trapezoid Logo ----
@@ -83,9 +108,9 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: var(--navbar-trapezoid-bg);
+    background: linear-gradient(180deg, #0C1628 0%, var(--navbar-trapezoid-bg) 50%, #060E1A 100%);
     clip-path: polygon(0% 0%, 100% 0%, 90% 100%, 10% 100%);
-    box-shadow: inset 0 -20px 30px -10px rgba(0, 218, 243, 0.3);
+    box-shadow: inset 0 -20px 30px -10px rgba(0, 229, 255, 0.35);
 
     // Bottom glow line
     &::after {
@@ -97,8 +122,9 @@
       height: 2px;
       background: var(--color-primary);
       box-shadow:
-        0 0 10px rgba(0, 229, 255, 0.8),
-        0 0 20px rgba(0, 229, 255, 0.5);
+        0 0 12px rgba(0, 229, 255, 0.9),
+        0 0 28px rgba(0, 229, 255, 0.6),
+        0 0 48px rgba(0, 229, 255, 0.3);
     }
   }
 
@@ -106,11 +132,11 @@
     font-family: var(--font-heading);
     font-size: 20px;
     font-weight: 900;
-    letter-spacing: 4px;
+    letter-spacing: 5px;
     text-transform: uppercase;
     color: var(--color-primary);
-    filter: drop-shadow(0 0 10px rgba(0, 229, 255, 0.8));
-    margin-bottom: 8px; // offset from trapezoid bottom edge
+    filter: drop-shadow(0 0 12px rgba(0, 229, 255, 0.9));
+    margin-bottom: 8px;
     text-decoration: none;
 
     &:hover {
@@ -129,17 +155,19 @@
     width: 8px;
     height: 8px;
     border-radius: 50%;
-    background: var(--color-primary);
-    box-shadow: 0 0 6px var(--color-primary);
+    background: var(--color-success);
+    box-shadow: 0 0 6px var(--color-success);
+    animation: status-breathe 2s ease-in-out infinite;
 
     &--warning {
-      background: var(--color-error);
-      box-shadow: 0 0 6px var(--color-error);
+      background: var(--color-warning);
+      box-shadow: 0 0 6px var(--color-warning);
     }
 
     &--idle {
       background: var(--color-text-muted);
       box-shadow: none;
+      animation: none;
     }
   }
 }
@@ -153,14 +181,14 @@
   justify-content: center;
   gap: var(--space-2);
   padding: var(--space-1) var(--space-4);
-  background: rgba(255, 0, 85, 0.12);
+  background: rgba(255, 51, 102, 0.12);
   border-bottom: 1px solid var(--color-error);
   color: var(--color-error);
   flex-shrink: 0;
 
   code {
     font-family: var(--font-mono);
-    background: rgba(255, 0, 85, 0.15);
+    background: rgba(255, 51, 102, 0.15);
     padding: 0 var(--space-2);
   }
 }

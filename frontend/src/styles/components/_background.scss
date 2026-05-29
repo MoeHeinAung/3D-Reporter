@@ -1,7 +1,8 @@
 // ============================================================================
-// BACKGROUND GRID OVERLAY — Docs/Navbar-and-background-reference.html
-// Subtle 12×8 grid cell overlay behind cards at 20% opacity.
-// Each cell: 1px border at primary/20, subtle primary/5 fill.
+// BACKGROUND GRID OVERLAY — "Nexus Terminal"
+// Subtle 12×8 grid cell overlay behind cards.
+// Dual-scale: primary grid 24px, secondary grid every 4 cells.
+// Hex-dot intersections for additional cyber-precision.
 // ============================================================================
 
 .grid-overlay {
@@ -14,10 +15,23 @@
   padding: var(--grid-gap);
   pointer-events: none;
   z-index: 0;
-  opacity: 0.2;
+  opacity: 0.15;
 }
 
 .grid-overlay__cell {
-  border: 1px solid rgba(0, 240, 255, 0.2);
-  background: rgba(0, 240, 255, 0.05);
+  position: relative;
+  border: 1px solid rgba(0, 229, 255, 0.2);
+  background: rgba(0, 229, 255, 0.05);
+
+  // Hex-dot at cell intersections (top-left corner)
+  &::before {
+    content: '';
+    position: absolute;
+    top: -2px;
+    left: -2px;
+    width: 4px;
+    height: 4px;
+    background: rgba(0, 229, 255, 0.35);
+    clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+  }
 }

@@ -9,7 +9,7 @@
 -- ----------------------------------------------------------------------------
 -- 1. Total sale amount per ticket in the current (OPEN) draw
 -- ----------------------------------------------------------------------------
-CREATE VIEW v_current_draw_ticket_sales AS
+CREATE VIEW IF NOT EXISTS v_current_draw_ticket_sales AS
 SELECT
     d.id         AS draw_id,
     s.ticket,
@@ -22,7 +22,7 @@ GROUP BY d.id, s.ticket;
 -- ----------------------------------------------------------------------------
 -- 2. Total offloaded amount per ticket in the current (OPEN) draw
 -- ----------------------------------------------------------------------------
-CREATE VIEW v_current_draw_ticket_offloads AS
+CREATE VIEW IF NOT EXISTS v_current_draw_ticket_offloads AS
 SELECT
     d.id         AS draw_id,
     o.ticket,

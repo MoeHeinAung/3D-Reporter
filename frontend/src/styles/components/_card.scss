@@ -1,5 +1,5 @@
 // ============================================================================
-// OPERATIONAL CARDS — Docs/UI-Design-system.md §3.2
+// OPERATIONAL CARDS — "Nexus Terminal"
 // Glassmorphism cards with bracket corner accents.
 // ============================================================================
 
@@ -16,28 +16,50 @@
   height: 100%;
   display: flex;
   flex-direction: column;
+  transition:
+    border-color var(--duration-slow) var(--ease-out-expo),
+    box-shadow var(--duration-slow) var(--ease-out-expo);
+
+  // Subtle noise grain overlay for depth
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.03;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
+    background-repeat: repeat;
+    background-size: 256px 256px;
+  }
 
   // Card header with HUD-style title
   &__header {
     @include hud-text(var(--text-sm));
+    position: relative;
+    z-index: 1;
     display: flex;
     align-items: center;
     justify-content: space-between;
     padding-bottom: var(--space-3);
     margin-bottom: var(--space-3);
-    border-bottom: 1px solid var(--color-border);
-    flex-shrink: 0;
+    border-bottom: 1px solid transparent;
+    border-image: linear-gradient(90deg, var(--color-primary) 0%, transparent 80%) 1;
   }
 
   // Card body — scrollable content area
   &__body {
+    position: relative;
+    z-index: 1;
     flex: 1;
-    min-height: 0; // Required for flex children to scroll
+    min-height: 0;
     @include scroll-container;
   }
 
   // Card footer
   &__footer {
+    position: relative;
+    z-index: 1;
     flex-shrink: 0;
     padding-top: var(--space-3);
     margin-top: var(--space-3);
@@ -47,21 +69,41 @@
 
 // ---- Card Variants ----
 
-// Risk card — pulses when active
+// Risk card — amber warning tint
 .card--risk {
-  border-color: rgba(255, 0, 85, 0.25);
+  border-color: rgba(245, 158, 11, 0.25);
 
   &.card--active {
     animation: pulse-hologram var(--duration-pulse) ease-in-out infinite;
-    border-color: rgba(255, 0, 85, 0.5);
+    border-color: rgba(245, 158, 11, 0.5);
     box-shadow: var(--shadow-neon-error);
   }
 }
 
-// Active card — brighter border, subtle glow
+// Active card — brighter border, multi-layer glow
 .card--active {
-  border-color: rgba(0, 240, 255, 0.3);
-  box-shadow: var(--shadow-neon-primary);
+  border-color: rgba(0, 229, 255, 0.3);
+  box-shadow: var(--shadow-neon-primary), var(--shadow-inner-glow);
+}
+
+// Success card — emerald green accent
+.card--success {
+  border-color: rgba(0, 230, 118, 0.25);
+
+  &.card--active {
+    border-color: rgba(0, 230, 118, 0.5);
+    box-shadow: 0 0 4px rgba(0, 230, 118, 0.6), 0 0 12px rgba(0, 230, 118, 0.3), 0 0 30px rgba(0, 230, 118, 0.1);
+  }
+}
+
+// Highlight card — violet secondary accent
+.card--highlight {
+  border-color: rgba(168, 85, 247, 0.25);
+
+  &.card--active {
+    border-color: rgba(168, 85, 247, 0.5);
+    box-shadow: var(--shadow-neon-secondary), var(--shadow-inner-glow);
+  }
 }
 
 // Compact card — less padding for dense telemetry
@@ -75,7 +117,7 @@
 
   .card__footer {
     padding-top: var(--space-2);
-    margin-top: var(--space-2);
+    margin-bottom: var(--space-2);
   }
 }
 
