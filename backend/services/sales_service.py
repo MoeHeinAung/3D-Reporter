@@ -2,17 +2,36 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import NamedTuple
 
 from sqlalchemy.orm import Session
 
 from backend.database.models import Batch, Sale
 from backend.errors import ConflictError, NotFoundError, ValidationError
+from backend.repositories.agent_repository import AgentRepository
 from backend.repositories.batch_repository import BatchRepository
 from backend.repositories.blacklist_repository import BlacklistRepository
 from backend.repositories.draw_repository import DrawRepository
 from backend.repositories.sale_repository import SaleRepository
+
+
+def _is_cutoff_passed(open_date: str, cutoff_time: str) -> bool:
+    """Return True if the cutoff datetime has passed.
+
+    Handles both full ISO timestamps and bare HH:MM strings (combined with open_date).
+    """
+    try:
+        cutoff_dt = datetime.fromisoformat(cutoff_time)
+    except ValueError:
+        try:
+            hour, minute = map(int, cutoff_time.split(":"))
+            cutoff_dt = datetime.strptime(f"{open_date}T{hour:02d}:{minute:02d}:00", "%Y-%m-%dT%H:%M:%S")
+        except (ValueError, AttributeError):
+            return False
+    if cutoff_dt.tzinfo is None:
+        cutoff_dt = cutoff_dt.replace(tzinfo=UTC)
+    return datetime.now(UTC) > cutoff_dt
 
 
 class SaleValidationResult(NamedTuple):
@@ -29,6 +48,7 @@ class SalesService:
         self._sale_repo = SaleRepository(session)
         self._batch_repo = BatchRepository(session)
         self._blacklist_repo = BlacklistRepository(session)
+        self._agent_repo = AgentRepository(session)
 
     def record_sale(
         self, draw_id: int, agent_id: str, batch_id: int, ticket: str, amount: int, note: str | None = None
@@ -40,7 +60,7 @@ class SalesService:
             raise NotFoundError(f"Draw {draw_id} not found.")
         if draw.status != "OPEN":
             raise ConflictError("Sales are only allowed when the draw is OPEN.")
-        if datetime.utcnow().isoformat() > draw.cutoff_time:
+        if _is_cutoff_passed(draw.open_date, draw.cutoff_time):
             raise ConflictError("Sales are closed: cutoff time has passed.")
 
         # Validate batch belongs to same draw and agent
@@ -95,6 +115,9 @@ class SalesService:
         draw = self._draw_repo.get_by_id(draw_id)
         if draw is None:
             raise NotFoundError(f"Draw {draw_id} not found.")
+        agent = self._agent_repo.get_by_id(agent_id)
+        if agent is None:
+            raise NotFoundError(f"Agent {agent_id} not found.")
         return self._batch_repo.create(draw_id=draw_id, agent_id=agent_id, total_amount=0)
 
     def _recalc_batch_total(self, batch_id: int) -> None:

@@ -149,7 +149,47 @@ This document records feature implementations and significant structural changes
   - **Frontend — `components/Navbar.tsx`:** Removed uptime clock, green status dot, and theme toggle button. Removed `useTheme` and `useUptime` imports.
 - **Files:** `frontend/src/pages/Sales.tsx` (rewrite), `backend/repositories/sale_repository.py`, `backend/repositories/batch_repository.py`, `backend/services/sales_service.py`, `backend/api.py`, `frontend/src/api/bridge.ts`, `frontend/src/types/api.ts`, `frontend/src/styles/components/_draws.scss`, `frontend/src/components/Navbar.tsx`
 
-## 2026-05-29 — Dynamic Financial Report Page
+## 2026-05-29 — Executive Summary Remediation (Phases 1-4)
+
+### IMPL-013: TypeScript Build Fix & ESLint Configuration
+
+- **Rationale:** `bridge.ts`'s `getAPI()` returned `PywebviewAPI` but the mock object literal included extra properties (`_mockDraws`, `_nextDrawId`, etc.) violating TypeScript excess property checking. Three frontend pages used `note || null` where the API expected `string | undefined`. ESLint v7 flagged data-fetching `useEffect` patterns as errors.
+- **Changes:**
+  - **`api/bridge.ts`:** Moved all mock state from object literal properties into closure variables within `getAPI()`. Typed the result object as `PywebviewAPI` explicitly, eliminating excess property violations. Removed `MockState` interface.
+  - **`pages/Draws.tsx:214`:** Changed `note || null` to `note || undefined`.
+  - **`pages/Partners.tsx:164,176`:** Same null→undefined fix.
+  - **`eslint.config.js`:** Set `react-hooks/exhaustive-deps` to `'warn'` to accommodate established data-fetching patterns.
+- **Files:** `frontend/src/api/bridge.ts`, `frontend/src/pages/Draws.tsx`, `frontend/src/pages/Partners.tsx`, `frontend/eslint.config.js`
+
+### IMPL-014: Database Correctness — FK, WAL, Views, Constraints
+
+- **Rationale:** SQLite had `PRAGMA foreign_keys=OFF` (the default), no WAL journal mode, no busy timeout, and database views (`views.sql`) were never executed. The Batch table lacked a UNIQUE constraint on `(draw_id, agent_id)`, making the "one batch per draw/agent" rule dependent entirely on application-level lookup-then-create (race condition). No validation checked that agents/dealers exist when creating batches/offloads.
+- **Changes:**
+  - **`database/connection.py`:** Added `@event.listens_for(Engine, "connect")` listener that runs `PRAGMA foreign_keys=ON`, `PRAGMA busy_timeout=5000`, and `PRAGMA synchronous=NORMAL` on every connection. `init_db()` now enables `PRAGMA journal_mode=WAL` (persistent) and executes `views.sql` via `_install_views()` which reads and executes each statement from the file.
+  - **`database/models.py`:** Added `UniqueConstraint("draw_id", "agent_id", name="uq_batch_draw_agent")` to Batch. Added composite indexes: `idx_sales_draw_agent` on Sale, `idx_offloaded_draw_dealer` on Offloaded.
+  - **`services/sales_service.py`:** `get_or_create_batch()` now validates agent existence via `AgentRepository.get_by_id()` before creating a batch, raising `NotFoundError` if the agent doesn't exist.
+  - **`services/offload_service.py`:** `create_offload()` now validates master dealer existence via `MasterDealerRepository.get_by_id()` before proceeding.
+- **Files:** `backend/database/connection.py`, `backend/database/models.py`, `backend/services/sales_service.py`, `backend/services/offload_service.py`
+
+### IMPL-015: Business Logic — Cutoff Comparison, Draw Validation, Note Clearing, Error Codes
+
+- **Rationale:** Cutoff time comparison used string comparison (`datetime.utcnow().isoformat() > draw.cutoff_time`) which always evaluates True when `cutoff_time` is `"14:00"` and the ISO timestamp starts with `"2"`. No status-gated validation on draw updates allowed immutable fields on SETTLED draws. The `if note is not None:` guard in services prevented clearing notes. Generic error responses gave no actionable information.
+- **Changes:**
+  - **`services/sales_service.py` & `services/offload_service.py`:** Replaced string comparison with `_is_cutoff_passed(open_date, cutoff_time)` — parses `HH:MM` format by combining with `open_date` to form a UTC-aware datetime, or parses full ISO timestamps directly. Falls back to `False` on unparseable values.
+  - **`services/draw_service.py`:** `update_draw()` now rejects modifications to `open_date`, `cutoff_time`, and `house_holding_amount` when the draw is SETTLED. Validates `open_date` format (YYYY-MM-DD), `cutoff_time` format (HH:MM or ISO), and `house_holding_amount >= 0`. Uses `_UNSET` sentinel: `None` explicitly clears the note, `_UNSET` leaves it unchanged.
+  - **`services/agent_service.py` & `services/master_dealer_service.py`:** Same `_UNSET` sentinel pattern for note parameter — `None` now clears the note, `_UNSET` means "not provided."
+  - **`errors.py`:** Added `code` field to `AppError` (default `"INTERNAL_ERROR"`). Subclasses auto-set: `NotFoundError` → `"NOT_FOUND"`, `ValidationError` → `"VALIDATION_ERROR"`, `ConflictError` → `"CONFLICT"`, `DatabaseError` → `"DATABASE_ERROR"`.
+  - **`api.py`:** Error responses now include `errorCode`. Added explicit `json.JSONDecodeError` handling returning `"VALIDATION_ERROR"`. `IntegrityError` returns `"INTEGRITY_ERROR"`.
+  - **`types/api.ts`:** Added `errorCode?: string` to `ApiError`.
+- **Files:** `backend/services/sales_service.py`, `backend/services/offload_service.py`, `backend/services/draw_service.py`, `backend/services/agent_service.py`, `backend/services/master_dealer_service.py`, `backend/errors.py`, `backend/api.py`, `frontend/src/types/api.ts`
+
+### IMPL-016: Query Performance — N+1 Elimination
+
+- **Rationale:** `ReportService` called repository methods inside nested loops: `get_by_ticket_grouped_by_agent()` per winning ticket per agent (O(agents × winners)), same pattern for dealers, and `get_ticket_totals()` per winning ticket in admin section. `OffloadService.create_offload()` iterated all rows of `get_ticket_totals()` to find a single ticket's total inside the entry loop.
+- **Changes:**
+  - **`services/report_service.py`:** All raw sales and offload records are fetched once in `generate_report()`. Six precomputed dicts are built in-memory: `sales_by_agent`, `sales_by_ticket`, `sales_by_agent_ticket`, `offloads_by_dealer`, `offloads_by_ticket`, `offloads_by_dealer_ticket`. These are passed to `_build_agent_sections()`, `_build_dealer_sections()`, `_agent_winning_tickets()`, `_dealer_winning_tickets()`, and `_build_admin_section()` — all repository calls inside loops replaced with dict lookups.
+  - **`services/offload_service.py`:** `create_offload()` precomputes `sales_totals` and `offload_totals` dicts before the entry loop. In-memory tracking (`offload_totals[ticket] = already_offloaded + amount`) ensures subsequent entries in the same batch see accumulated offloads without re-querying the database. `blocked_tickets` is computed once as a set.
+- **Files:** `backend/services/report_service.py`, `backend/services/offload_service.py`
 
 ### IMPL-012: Report Page with Conditional Winning Ticket Logic and Export
 

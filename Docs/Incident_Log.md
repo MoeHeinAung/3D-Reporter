@@ -4,6 +4,50 @@ This document records every error encountered during development, organized chro
 
 ---
 
+## 2026-05-29 — Executive Summary Audit Remediation
+
+### INC-012: All sales and offloads rejected due to lexicographic cutoff string comparison
+
+- **Symptom:** Every `record_sale()` and `create_offload()` call returned "Sales/Offloads are closed: cutoff time has passed." regardless of the actual time. No tickets could be sold or offloaded.
+- **Root Cause:** `datetime.utcnow().isoformat() > draw.cutoff_time` uses string comparison. `datetime.utcnow().isoformat()` produces `"2026-05-29T06:30:00.123456"` while `draw.cutoff_time` stores `"14:00"` (from `<input type="time">`). The first character `"2"` is always lexicographically greater than `"1"`, so the comparison is always `True`.
+- **Resolution:** Parse `cutoff_time` as a proper datetime. If it's `HH:MM` format, combine with `draw.open_date` to form a UTC-aware datetime. If it's a full ISO timestamp, parse directly. Compare using `datetime.now(UTC) > cutoff_dt` for semantic correctness.
+- **Files:** `backend/services/sales_service.py`, `backend/services/offload_service.py`
+
+### INC-013: Notes could not be cleared due to `if note is not None` guard
+
+- **Symptom:** Clearing a note field in the UI and saving had no effect — the note remained unchanged in the database.
+- **Root Cause:** Service-layer update methods used `if note is not None:` to gate the update, treating `None` as "unchanged." The frontend sends `note || undefined` (which becomes Python `None` via pywebview) when the user clears the note field.
+- **Resolution:** Introduced `_UNSET = object()` sentinel. `None` now means "explicitly clear the note to NULL." The sentinel `_UNSET` means "not provided — don't change." Applied to `agent_service.py`, `master_dealer_service.py`, and `draw_service.py`.
+- **Files:** `backend/services/agent_service.py`, `backend/services/master_dealer_service.py`, `backend/services/draw_service.py`
+
+### INC-014: SETTLED draws allowed unrestricted field modification
+
+- **Symptom:** After settling a draw, `open_date`, `cutoff_time`, and `house_holding_amount` could still be changed through the edit draw modal.
+- **Root Cause:** `update_draw()` had no status-gated validation. Terminal SETTLED state was not enforced as immutable.
+- **Resolution:** Added status check in `update_draw()` — if `draw.status == "SETTLED"`, only the `note` field may be modified. Attempts to change `open_date`, `cutoff_time`, or `house_holding_amount` raise `ValidationError`.
+- **Files:** `backend/services/draw_service.py`
+
+### INC-015: Foreign keys disabled at SQLite level — orphan records possible
+
+- **Symptom:** Batches could be created for non-existent agents. Offloads could reference non-existent master dealers. Deleting an agent did not cascade-restrict its batches.
+- **Root Cause:** SQLite3 defaults to `PRAGMA foreign_keys=OFF`. The ORM's `ForeignKey` declarations were not enforced at the database level.
+- **Resolution:** Added `@event.listens_for(Engine, "connect")` listener that executes `PRAGMA foreign_keys=ON` on every connection. Complemented with application-level validation: `get_or_create_batch()` checks agent exists, `create_offload()` checks dealer exists. Also added `PRAGMA busy_timeout=5000` and `PRAGMA synchronous=NORMAL`.
+- **Files:** `backend/database/connection.py`, `backend/services/sales_service.py`, `backend/services/offload_service.py`
+
+### INC-016: Database views never installed — `views.sql` orphaned
+
+- **Symptom:** `v_current_draw_ticket_sales` and `v_current_draw_ticket_offloads` views did not exist in the database despite `views.sql` being present in the repository.
+- **Root Cause:** `views.sql` existed at `backend/database/views.sql` but was never imported or executed by any Python code. `init_db()` only called `Base.metadata.create_all()`.
+- **Resolution:** Added `_install_views()` helper that reads `views.sql` and executes its statements. Called in `init_db()` after `create_all()`. Also added `PRAGMA journal_mode=WAL` in `init_db()`.
+- **Files:** `backend/database/connection.py`
+
+### INC-017: N+1 queries in ReportService causing excessive database round-trips
+
+- **Symptom:** Report generation was slow for draws with many agents and winning tickets.
+- **Root Cause:** `get_by_ticket_grouped_by_agent()` called per winning ticket per agent inside nested loops. Same for dealers. `get_ticket_totals()` called per winning ticket in admin section.
+- **Resolution:** Fetch all sales and offload records once. Build six precomputed dicts in memory. Pass to section builders — all inner-loop repository calls replaced with O(1) dict lookups.
+- **Files:** `backend/services/report_service.py`
+
 ## 2026-05-28 — SCSS Architecture & Frontend-Backend Bridge Setup
 
 ### INC-001: Sass `math.div()` called without module import

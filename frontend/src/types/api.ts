@@ -61,6 +61,7 @@ export interface BatchInfo {
 /** Standard error shape returned by the backend on failure. */
 export interface ApiError {
   error: string
+  errorCode?: string
   details?: Record<string, unknown>
 }
 

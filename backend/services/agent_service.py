@@ -8,6 +8,8 @@ from backend.database.models import Agent
 from backend.errors import NotFoundError
 from backend.repositories.agent_repository import AgentRepository
 
+_UNSET = object()
+
 
 class AgentService:
     def __init__(self, session: Session) -> None:
@@ -23,7 +25,7 @@ class AgentService:
     def create(self, id: str, name: str, commission: int = 0, jp_factor: int = 0, sp_factor: int = 0, note: str | None = None) -> Agent:
         return self._repo.create(id=id, name=name, commission=commission, jp_factor=jp_factor, sp_factor=sp_factor, note=note)
 
-    def update(self, agent_id: str, name: str | None = None, commission: int | None = None, jp_factor: int | None = None, sp_factor: int | None = None, note: str | None = None) -> Agent:
+    def update(self, agent_id: str, name: str | None = None, commission: int | None = None, jp_factor: int | None = None, sp_factor: int | None = None, note: str | None | object = _UNSET) -> Agent:
         agent = self._repo.get_by_id(agent_id)
         if agent is None:
             raise NotFoundError(f"Agent {agent_id} not found.")
@@ -36,7 +38,7 @@ class AgentService:
             kwargs["jp_factor"] = jp_factor
         if sp_factor is not None:
             kwargs["sp_factor"] = sp_factor
-        if note is not None:
+        if note is not _UNSET:
             kwargs["note"] = note
         return self._repo.update(agent, **kwargs)
 

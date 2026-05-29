@@ -514,14 +514,18 @@ class API:
         except AppError as exc:
             session.rollback()
             logger.warning("Application error: %s", exc.message)
-            return {"error": exc.message, "details": exc.details}
+            return {"error": exc.message, "errorCode": exc.code, "details": exc.details}
+        except json.JSONDecodeError as exc:
+            session.rollback()
+            logger.warning("JSON decode error: %s", exc)
+            return {"error": f"Invalid JSON: {exc.msg}", "errorCode": "VALIDATION_ERROR"}
         except IntegrityError:
             session.rollback()
             logger.exception("Database integrity error")
-            return {"error": "A record with that data already exists."}
+            return {"error": "A record with that data already exists.", "errorCode": "INTEGRITY_ERROR"}
         except Exception:
             session.rollback()
             logger.exception("Unhandled error in API call")
-            return {"error": "An internal error occurred."}
+            return {"error": "An internal error occurred.", "errorCode": "INTERNAL_ERROR"}
         finally:
             session.close()

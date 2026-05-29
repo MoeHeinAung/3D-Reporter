@@ -86,6 +86,7 @@ class Draw(Base):
 class Batch(Base):
     __tablename__ = "batches"
     __table_args__ = (
+        UniqueConstraint("draw_id", "agent_id", name="uq_batch_draw_agent"),
         Index("idx_batches_draw_id", "draw_id"),
         Index("idx_batches_agent_id", "agent_id"),
     )
@@ -113,6 +114,7 @@ class Sale(Base):
         Index("idx_sales_agent_id", "agent_id"),
         Index("idx_sales_batch_id", "batch_id"),
         Index("idx_sales_ticket", "draw_id", "ticket"),
+        Index("idx_sales_draw_agent", "draw_id", "agent_id"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
@@ -139,6 +141,7 @@ class Offloaded(Base):
         Index("idx_offloaded_draw_id", "draw_id"),
         Index("idx_offloaded_dealer", "master_dealer_id"),
         Index("idx_offloaded_ticket", "draw_id", "ticket"),
+        Index("idx_offloaded_draw_dealer", "draw_id", "master_dealer_id"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)

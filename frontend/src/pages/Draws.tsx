@@ -211,7 +211,7 @@ export default function Draws() {
       closeDrawModal()
       await fetchDraws()
     } else if (editingDrawId !== null) {
-      const result = await api.update_draw(editingDrawId, openDate, cutoffTime, houseHoldingAmount, note || null)
+      const result = await api.update_draw(editingDrawId, openDate, cutoffTime, houseHoldingAmount, note || undefined)
       if (isApiError(result)) {
         setDrawsError(result.error)
         setDrawFormSubmitting(false)

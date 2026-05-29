@@ -91,10 +91,37 @@ class ReportService:
         winning_tickets = self._winning_repo.get_by_draw(draw_id)
         has_winners = len(winning_tickets) > 0
 
-        agent_lines = self._build_agent_sections(draw_id, agents, winning_tickets)
-        dealer_lines = self._build_dealer_sections(draw_id, dealers, winning_tickets)
+        # Precompute all aggregates once to avoid N+1 queries
+        all_sales = self._sale_repo.get_by_draw(draw_id)
+        all_offloads = self._offloaded_repo.get_by_draw(draw_id)
+
+        sales_by_agent: dict[str, int] = {}
+        sales_by_ticket: dict[str, int] = {}
+        sales_by_agent_ticket: dict[tuple[str, str], int] = {}
+        for s in all_sales:
+            sales_by_agent[s.agent_id] = sales_by_agent.get(s.agent_id, 0) + s.amount
+            sales_by_ticket[s.ticket] = sales_by_ticket.get(s.ticket, 0) + s.amount
+            key = (s.agent_id, s.ticket)
+            sales_by_agent_ticket[key] = sales_by_agent_ticket.get(key, 0) + s.amount
+
+        offloads_by_dealer: dict[str, int] = {}
+        offloads_by_ticket: dict[str, int] = {}
+        offloads_by_dealer_ticket: dict[tuple[str, str], int] = {}
+        for o in all_offloads:
+            offloads_by_dealer[o.master_dealer_id] = offloads_by_dealer.get(o.master_dealer_id, 0) + o.amount
+            offloads_by_ticket[o.ticket] = offloads_by_ticket.get(o.ticket, 0) + o.amount
+            key = (o.master_dealer_id, o.ticket)
+            offloads_by_dealer_ticket[key] = offloads_by_dealer_ticket.get(key, 0) + o.amount
+
+        agent_lines = self._build_agent_sections(
+            agents, winning_tickets, sales_by_agent, sales_by_agent_ticket
+        )
+        dealer_lines = self._build_dealer_sections(
+            dealers, winning_tickets, offloads_by_dealer, offloads_by_dealer_ticket
+        )
         admin = self._build_admin_section(
-            draw_id, agent_lines, dealer_lines, agents, winning_tickets
+            draw_id, agent_lines, dealer_lines, agents, winning_tickets,
+            sales_by_ticket, offloads_by_ticket, sales_by_agent_ticket,
         )
 
         return ReportData(
@@ -112,12 +139,11 @@ class ReportService:
 
     def _build_agent_sections(
         self,
-        draw_id: int,
         agents: dict[str, object],
         winning_tickets: list[object],
+        sales_by_agent: dict[str, int],
+        sales_by_agent_ticket: dict[tuple[str, str], int],
     ) -> list[AgentReportLine]:
-        sales_by_agent = dict(self._sale_repo.get_sales_grouped_by_agent(draw_id))
-
         lines: list[AgentReportLine] = []
         for agent_id, total_sales in sales_by_agent.items():
             agent = agents.get(agent_id)
@@ -127,7 +153,9 @@ class ReportService:
             commission = total_sales * int(agent.commission) // 100
             subtotal = total_sales - commission
 
-            wt_details = self._agent_winning_tickets(draw_id, agent, winning_tickets)
+            wt_details = self._agent_winning_tickets(
+                agent, winning_tickets, sales_by_agent_ticket
+            )
             total_payout = sum(d.payout for d in wt_details)
             total = subtotal - total_payout
 
@@ -145,20 +173,17 @@ class ReportService:
 
     def _agent_winning_tickets(
         self,
-        draw_id: int,
         agent: object,
         winning_tickets: list[object],
+        sales_by_agent_ticket: dict[tuple[str, str], int],
     ) -> list[WinningTicketDetail]:
         details: list[WinningTicketDetail] = []
         for wt in winning_tickets:
-            agent_sales = dict(
-                self._sale_repo.get_by_ticket_grouped_by_agent(draw_id, wt.ticket)
-            )
-            amount = agent_sales.get(agent.id, 0)
+            amount = sales_by_agent_ticket.get((agent.id, wt.ticket), 0)
             if amount == 0:
                 continue
 
-            is_half = self._blacklist_repo.is_half(draw_id, wt.ticket)
+            is_half = self._blacklist_repo.is_half(wt.draw_id, wt.ticket)
             payout = self._calc_payout(amount, wt.type, agent.jp_factor, agent.sp_factor, is_half)
 
             details.append(WinningTicketDetail(
@@ -177,14 +202,11 @@ class ReportService:
 
     def _build_dealer_sections(
         self,
-        draw_id: int,
         dealers: dict[str, object],
         winning_tickets: list[object],
+        offloads_by_dealer: dict[str, int],
+        offloads_by_dealer_ticket: dict[tuple[str, str], int],
     ) -> list[DealerReportLine]:
-        offloads_by_dealer = dict(
-            self._offloaded_repo.get_offloads_grouped_by_dealer(draw_id)
-        )
-
         lines: list[DealerReportLine] = []
         for dealer_id, total_offloaded in offloads_by_dealer.items():
             dealer = dealers.get(dealer_id)
@@ -194,7 +216,9 @@ class ReportService:
             commission = total_offloaded * int(dealer.commission) // 100
             subtotal = total_offloaded - commission
 
-            wt_details = self._dealer_winning_tickets(draw_id, dealer, winning_tickets)
+            wt_details = self._dealer_winning_tickets(
+                dealer, winning_tickets, offloads_by_dealer_ticket
+            )
             total_payout = sum(d.payout for d in wt_details)
             total = subtotal - total_payout
 
@@ -212,20 +236,17 @@ class ReportService:
 
     def _dealer_winning_tickets(
         self,
-        draw_id: int,
         dealer: object,
         winning_tickets: list[object],
+        offloads_by_dealer_ticket: dict[tuple[str, str], int],
     ) -> list[WinningTicketDetail]:
         details: list[WinningTicketDetail] = []
         for wt in winning_tickets:
-            dealer_offloads = dict(
-                self._offloaded_repo.get_by_ticket_grouped_by_dealer(draw_id, wt.ticket)
-            )
-            amount = dealer_offloads.get(dealer.id, 0)
+            amount = offloads_by_dealer_ticket.get((dealer.id, wt.ticket), 0)
             if amount == 0:
                 continue
 
-            is_half = self._blacklist_repo.is_half(draw_id, wt.ticket)
+            is_half = self._blacklist_repo.is_half(wt.draw_id, wt.ticket)
             payout = self._calc_payout(
                 amount, wt.type, dealer.jp_factor, dealer.sp_factor, is_half
             )
@@ -251,6 +272,9 @@ class ReportService:
         dealer_lines: list[DealerReportLine],
         agents: dict[str, object],
         winning_tickets: list[object],
+        sales_by_ticket: dict[str, int],
+        offloads_by_ticket: dict[str, int],
+        sales_by_agent_ticket: dict[tuple[str, str], int],
     ) -> AdminReportSection:
         total_sales = sum(a.total_sale_amount for a in agent_lines)
         total_commission = sum(a.commission_paid for a in agent_lines)
@@ -262,8 +286,8 @@ class ReportService:
 
         admin_wt: list[WinningTicketDetail] = []
         for wt in winning_tickets:
-            total_ticket_sales = self._total_sales_for_ticket(draw_id, wt.ticket)
-            total_ticket_offloaded = self._total_offloads_for_ticket(draw_id, wt.ticket)
+            total_ticket_sales = sales_by_ticket.get(wt.ticket, 0)
+            total_ticket_offloaded = offloads_by_ticket.get(wt.ticket, 0)
             admin_held = max(total_ticket_sales - total_ticket_offloaded, 0)
 
             if admin_held <= 0:
@@ -272,15 +296,12 @@ class ReportService:
             is_half = self._blacklist_repo.is_half(draw_id, wt.ticket)
 
             # Attribute admin-held amount proportionally to each agent that sold the ticket
-            agent_sales_map = dict(
-                self._sale_repo.get_by_ticket_grouped_by_agent(draw_id, wt.ticket)
-            )
-
-            for agent_id, agent_sales in agent_sales_map.items():
-                if agent_sales <= 0 or total_ticket_sales <= 0:
+            for agent_id, agent_sales in sales_by_agent_ticket.items():
+                a_id, ticket = agent_id
+                if ticket != wt.ticket or agent_sales <= 0 or total_ticket_sales <= 0:
                     continue
 
-                agent = agents.get(agent_id)
+                agent = agents.get(a_id)
                 if agent is None:
                     continue
 
@@ -322,14 +343,6 @@ class ReportService:
     # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
-
-    def _total_sales_for_ticket(self, draw_id: int, ticket: str) -> int:
-        totals = dict(self._sale_repo.get_ticket_totals(draw_id))
-        return totals.get(ticket, 0)
-
-    def _total_offloads_for_ticket(self, draw_id: int, ticket: str) -> int:
-        totals = dict(self._offloaded_repo.get_ticket_totals(draw_id))
-        return totals.get(ticket, 0)
 
     @staticmethod
     def _calc_payout(

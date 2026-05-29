@@ -69,6 +69,48 @@ This document serves as a strategic reference for common errors, logical issues,
     *   **Context:** IDs or tickets being accepted by the UI but rejected by database constraints.
     *   **Resolution:** Synchronize Pydantic schemas and TypeScript types. Use shared Regex patterns to enforce strict validation (e.g., 3-digit tickets, 3-letter IDs) across all layers.
 
+## 6. Database Correctness & Configuration
+
+**Challenge:** Ensuring SQLite is correctly configured for multi-connection concurrency and data integrity.
+
+*   **Foreign Keys Disabled by Default**
+    *   **Context:** SQLite3 defaults to `PRAGMA foreign_keys=OFF`. Foreign key constraints in ORM models (`ForeignKey("agents.id")`, etc.) were not enforced at the database level. Orphan records (batches referencing non-existent agents, sales referencing non-existent draws) could be created despite ORM-level relationship declarations.
+    *   **Resolution:** Add a `@event.listens_for(Engine, "connect")` listener in `connection.py` that executes `PRAGMA foreign_keys=ON` on every new connection. This must happen per-connection — WAL mode persists across connections, but `foreign_keys` does not. Also add `busy_timeout=5000` and `synchronous=NORMAL` for concurrency safety.
+*   **Database Views Never Installed**
+    *   **Context:** `views.sql` defines `v_current_draw_ticket_sales` and `v_current_draw_ticket_offloads` — views that join against the OPEN draw for risk calculations. The file existed but was never referenced by any Python code.
+    *   **Resolution:** `init_db()` in `connection.py` now reads and executes `views.sql` after `create_all()`. Each statement is split on `;` and executed individually via a raw connection.
+*   **Missing UNIQUE Constraint on Batch**
+    *   **Context:** The business rule "one batch per draw per agent" was enforced only by `get_or_create_batch()`'s lookup-then-create pattern, which is vulnerable to race conditions under concurrent access.
+    *   **Resolution:** Add `UniqueConstraint("draw_id", "agent_id", name="uq_batch_draw_agent")` to the Batch model. SQLAlchemy will create the constraint on next `create_all()`. On existing databases, check for duplicate `(draw_id, agent_id)` pairs before migrating.
+*   **Missing Entity Validation in Foreign Key Chains**
+    *   **Context:** `get_or_create_batch()` checked draw existence but not agent existence. `create_offload()` did not validate that the `master_dealer_id` references a real dealer. With FKs disabled, these gaps allowed orphan batch and offload records.
+    *   **Resolution:** Both services now validate the referenced entity exists before creating records, raising `NotFoundError` if not found. This complements the FK PRAGMA fix — validation at both the application and database layers.
+
+## 7. Business Logic Defects
+
+**Challenge:** Core domain logic errors that silently produced incorrect behavior.
+
+*   **Cutoff Time String Comparison**
+    *   **Context:** `datetime.utcnow().isoformat() > draw.cutoff_time` performs lexicographic string comparison. `datetime.utcnow().isoformat()` returns `"2026-05-29T06:30:00.123456"` while `draw.cutoff_time` stores `"14:00"` (from `<input type="time">`). String comparison: `"2" > "1"` is always `True` — ALL sales and offloads are immediately rejected regardless of actual time.
+    *   **Resolution:** Parse `cutoff_time` properly — try ISO format first, then `HH:MM` combined with `open_date` to form a full datetime. Use `datetime.now(UTC) > cutoff_dt` for semantic comparison. Applies to both `sales_service.py` and `offload_service.py`.
+*   **Note Clearing Semantics (Sentinel Pattern)**
+    *   **Context:** Services used `if note is not None:` to gate updates, treating `None` as "unchanged." But the frontend sends `note || undefined` (which becomes `None` via pywebview) when the user clears a note field. Notes could never be cleared.
+    *   **Resolution:** Use a module-level `_UNSET = object()` sentinel. `None` means "explicitly clear the note." `_UNSET` (the sentinel) means "not provided — don't change." Applies to `agent_service.py`, `master_dealer_service.py`, and `draw_service.py`.
+*   **Draw Update Missing Status-Gated Validation**
+    *   **Context:** `update_draw()` allowed unrestricted modification of all fields regardless of draw status. A SETTLED draw could have its `open_date`, `cutoff_time`, or `house_holding_amount` changed — breaking report integrity and settlement finality.
+    *   **Resolution:** SETTLED draws are now immutable except for the `note` field. `open_date` must match YYYY-MM-DD format. `cutoff_time` must be HH:MM or ISO. `house_holding_amount >= 0` enforced.
+
+## 8. Query Performance Anti-Patterns
+
+**Challenge:** N+1 queries in critical paths causing unnecessary database round trips.
+
+*   **ReportService Nested-Loop Repository Calls**
+    *   **Context:** `_agent_winning_tickets()` called `get_by_ticket_grouped_by_agent()` per winning ticket per agent — O(agents × winners). Same pattern in `_dealer_winning_tickets()`. `_build_admin_section()` called `_total_sales_for_ticket()` + `_total_offloads_for_ticket()` per winning ticket, each invoking `get_ticket_totals()` and scanning the full result.
+    *   **Resolution:** Fetch all sales and offloads once in `generate_report()`. Build six precomputed dicts in-memory. Pass to section builders — all dict lookups are O(1), eliminating every repository call from inner loops.
+*   **OffloadService Loop Scanning Full Result Sets**
+    *   **Context:** Inside the `for entry in entries` loop, `get_ticket_totals()` was called for sales AND offloads, and each call's full result was scanned with a `sum(... if row[0] == ticket)` comprehension — O(entries × all_tickets) for each totals call.
+    *   **Resolution:** Precompute `sales_totals` and `offload_totals` dicts once before the loop. Track accumulated offloads in-memory as entries are created so subsequent entries see the updated totals.
+
 ## 5. UX & Aesthetic Integrity
 **Challenge:** Adherence to the "Futuristic Precision" design system.
 

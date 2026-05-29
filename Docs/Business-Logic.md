@@ -112,7 +112,27 @@ This document captures business logic, domain rules, constraints, and core ideas
   - **Footer:** A fixed footer bar below the table displays "Total Batches: N" and "Total Amount: X" aggregated across all currently filtered records.
 - **Affects:** `frontend/src/pages/Sales.tsx` (`batchGroups`, `sortedGroups`, `filteredSales`), `frontend/src/styles/components/_draws.scss`.
 
-## 2026-05-29 — Financial Report Calculation Engine
+## 2026-05-29 — Remediation: Cutoff Time Validation, Draw Immutability, Note Clearing, Error Codes
+
+- **Source:** Executive Summary audit, remediation plan implementation.
+- **Logic:**
+  - **Cutoff Time Parsing:** Cutoff times may arrive in two formats: bare `HH:MM` (from `<input type="time">`) or full ISO-8601 timestamps. The comparison against current time must parse both — `HH:MM` values are combined with the draw's `open_date` to form a full UTC datetime before comparison. String comparison (the prior implementation) is incorrect because `"2026-05-29T..." > "14:00"` always evaluates `True` due to lexicographic ordering (`"2" > "1"`).
+  - **Draw Immutability After Settlement:** Once a draw reaches `SETTLED` status (terminal state), only the `note` field may be modified. `open_date`, `cutoff_time`, and `house_holding_amount` are frozen — any attempt to change them raises `ValidationError`. This enforces settlement finality and report integrity.
+  - **Note Clearing Semantics:** The `note` parameter on update methods uses a sentinel pattern (`_UNSET = object()`). `None` means "explicitly clear the note" (set column to NULL). The `_UNSET` sentinel means "not provided — leave unchanged." This distinguishes "the user cleared the note field" from "the note field wasn't in the request."
+  - **Structured Error Codes:** Every `AppError` carries an `error_code` string for programmatic handling: `NOT_FOUND` (resource missing), `VALIDATION_ERROR` (input rejected), `CONFLICT` (business rule violation), `INTEGRITY_ERROR` (database constraint), `INTERNAL_ERROR` (unexpected). The frontend `ApiError` type includes an optional `errorCode` field.
+  - **Entity Validation in FK Chains:** Before creating a Batch, the referenced Agent must exist. Before creating an Offloaded record, the referenced Master Dealer must exist. These checks complement database-level FK enforcement.
+- **Affects:** `backend/services/sales_service.py`, `backend/services/offload_service.py`, `backend/services/draw_service.py`, `backend/services/agent_service.py`, `backend/services/master_dealer_service.py`, `backend/errors.py`, `backend/api.py`, `frontend/src/types/api.ts`.
+
+## 2026-05-29 — Database Configuration Requirements
+
+- **Source:** Executive Summary audit, database correctness remediation.
+- **Logic:**
+  - **Foreign Keys Per-Connection:** SQLite3 requires `PRAGMA foreign_keys=ON` on every new connection. Unlike `journal_mode=WAL` which persists across connections, `foreign_keys` is connection-scoped. An `@event.listens_for(Engine, "connect")` listener is the canonical SQLAlchemy pattern.
+  - **WAL Mode Persistence:** `PRAGMA journal_mode=WAL` is set once via a raw connection in `init_db()`. It persists for the lifetime of the database file. WAL mode allows concurrent reads while a write is in progress, preventing "database is locked" errors.
+  - **Busy Timeout:** `PRAGMA busy_timeout=5000` (5 seconds) tells SQLite to wait and retry when encountering a locked database, rather than failing immediately with `SQLITE_BUSY`.
+  - **Synchronous Mode:** `PRAGMA synchronous=NORMAL` balances safety and performance — the database syncs at critical moments but not on every write, appropriate for a desktop application.
+  - **Views as Schema Objects:** Database views (`v_current_draw_ticket_sales`, `v_current_draw_ticket_offloads`) are schema objects that must be created after tables. `init_db()` executes `views.sql` after `create_all()`, using `CREATE VIEW` statements that are idempotent (safe to re-run).
+- **Affects:** `backend/database/connection.py`, `backend/database/views.sql`.
 
 - **Source:** User-directed report page specification with dynamic winning ticket integration and export-as-image feature.
 - **Logic:**

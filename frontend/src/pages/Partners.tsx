@@ -161,7 +161,7 @@ export default function Partners() {
         closeModal()
         await fetchAgents()
       } else if (editingId) {
-        const result = await api.update_agent(editingId, form.name, form.commission, form.jpFactor, form.spFactor, form.note || null)
+        const result = await api.update_agent(editingId, form.name, form.commission, form.jpFactor, form.spFactor, form.note || undefined)
         if (isApiError(result)) { setAgentsError(result.error); setFormSubmitting(false); return }
         closeModal()
         await fetchAgents()
@@ -173,7 +173,7 @@ export default function Partners() {
         closeModal()
         await fetchDealers()
       } else if (editingId) {
-        const result = await api.update_master_dealer(editingId, form.name, form.commission, form.jpFactor, form.spFactor, form.note || null)
+        const result = await api.update_master_dealer(editingId, form.name, form.commission, form.jpFactor, form.spFactor, form.note || undefined)
         if (isApiError(result)) { setDealersError(result.error); setFormSubmitting(false); return }
         closeModal()
         await fetchDealers()

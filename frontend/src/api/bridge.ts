@@ -75,28 +75,6 @@ interface PywebviewAPI {
 }
 
 // ---------------------------------------------------------------------------
-// Mock state — shared mutable store for browser-based dev
-// ---------------------------------------------------------------------------
-
-interface MockState {
-  _mockDraws: OpenDrawInfo[]
-  _nextDrawId: number
-  _nextBlacklistId: number
-  _nextWinningId: number
-  _mockBlacklist: Array<{ id: number; drawId: number; ticket: string; type: string }>
-  _mockWinnings: Array<{ id: number; drawId: number; ticket: string; type: string }>
-  _mockAgents: Agent[]
-  _mockMasterDealers: MasterDealer[]
-  _mockSales: SaleRecord[]
-  _nextSaleId: number
-  _nextBatchId: number
-  _mockBatches: Array<{ id: number; drawId: number; agentId: string; totalAmount: number }>
-  _mockOffloads: OffloadRecord[]
-  _nextOffloadId: number
-  _mockOffloadConfig: OffloadConfig
-}
-
-// ---------------------------------------------------------------------------
 // Resolve the API — real pywebview or mock
 // ---------------------------------------------------------------------------
 
@@ -107,8 +85,30 @@ function getAPI(): PywebviewAPI {
     return w.pywebview.api
   }
 
+  // Mock state — closure variables for browser-based dev
+  const _mockDraws: OpenDrawInfo[] = []
+  let _nextDrawId = 1
+  let _nextBlacklistId = 1
+  let _nextWinningId = 1
+  const _mockBlacklist: Array<{ id: number; drawId: number; ticket: string; type: string }> = []
+  const _mockWinnings: Array<{ id: number; drawId: number; ticket: string; type: string }> = []
+  const _mockAgents: Agent[] = []
+  const _mockMasterDealers: MasterDealer[] = []
+  const _mockSales: SaleRecord[] = []
+  let _nextSaleId = 1
+  let _nextBatchId = 1
+  const _mockBatches: Array<{ id: number; drawId: number; agentId: string; totalAmount: number }> = []
+  const _mockOffloads: OffloadRecord[] = []
+  let _nextOffloadId = 1
+  const _mockOffloadConfig: OffloadConfig = {
+    adminHold: 5000,
+    maxOffloadAmount: 500000,
+    maxOffloadTicket: 60,
+    offloadPageNumber: 1,
+  }
+
   // Mock backend for browser-based development
-  return {
+  const mock: PywebviewAPI = {
     async get_system_info() {
       return {
         platform: 'browser',
@@ -144,47 +144,47 @@ function getAPI(): PywebviewAPI {
     async set_theme_preference() {
       return true
     },
-    async open_draw(this: MockState, open_date: string, cutoff_time: string, house_holding_amount?: number, note?: string) {
-      const hasOpen = this._mockDraws.find((d) => d.status === 'OPEN')
+    async open_draw(open_date: string, cutoff_time: string, house_holding_amount?: number, note?: string) {
+      const hasOpen = _mockDraws.find((d) => d.status === 'OPEN')
       if (hasOpen) {
         return { error: `Cannot open a new draw: draw ${hasOpen.id} is already OPEN.` }
       }
-      const hasClosed = this._mockDraws.find((d) => d.status === 'CLOSED')
+      const hasClosed = _mockDraws.find((d) => d.status === 'CLOSED')
       if (hasClosed) {
         return { error: `Cannot open a new draw: draw ${hasClosed.id} must be SETTLED before opening a new draw.` }
       }
       const entry: OpenDrawInfo = {
-        id: this._nextDrawId++,
+        id: _nextDrawId++,
         openDate: open_date,
         cutoffTime: cutoff_time,
         status: 'OPEN',
         houseHoldingAmount: house_holding_amount ?? 0,
         note: note ?? null,
       }
-      this._mockDraws.push(entry)
+      _mockDraws.push(entry)
       return { id: entry.id, status: entry.status }
     },
-    async close_draw(this: MockState, draw_id: number) {
-      const d = this._mockDraws.find((x) => x.id === draw_id)
+    async close_draw(draw_id: number) {
+      const d = _mockDraws.find((x) => x.id === draw_id)
       if (!d) return { error: `Draw ${draw_id} not found.` }
       if (d.status !== 'OPEN') return { error: `Cannot close draw ${draw_id}: status is ${d.status}.` }
       d.status = 'CLOSED'
       return { id: d.id, status: d.status }
     },
-    async settle_draw(this: MockState, draw_id: number) {
-      const d = this._mockDraws.find((x) => x.id === draw_id)
+    async settle_draw(draw_id: number) {
+      const d = _mockDraws.find((x) => x.id === draw_id)
       if (!d) return { error: `Draw ${draw_id} not found.` }
       if (d.status !== 'CLOSED') return { error: `Cannot settle draw ${draw_id}: status is ${d.status}.` }
       d.status = 'SETTLED'
       return { id: d.id, status: d.status }
     },
-    async get_open_draw(this: MockState) {
-      const d = this._mockDraws.find((x) => x.status === 'OPEN')
+    async get_open_draw() {
+      const d = _mockDraws.find((x) => x.status === 'OPEN')
       return d ?? null
     },
-    async record_sale(this: MockState, draw_id: number, agent_id: string, _batch_id: number, ticket: string, amount: number, note?: string) {
+    async record_sale(draw_id: number, agent_id: string, _batch_id: number, ticket: string, amount: number, note?: string) {
       const entry: SaleRecord = {
-        id: this._nextSaleId++,
+        id: _nextSaleId++,
         drawId: draw_id,
         agentId: agent_id,
         batchId: _batch_id,
@@ -192,47 +192,21 @@ function getAPI(): PywebviewAPI {
         amount,
         note: note ?? null,
       }
-      this._mockSales.push(entry)
-      const batch = this._mockBatches.find((b) => b.id === _batch_id)
+      _mockSales.push(entry)
+      const batch = _mockBatches.find((b) => b.id === _batch_id)
       if (batch) batch.totalAmount += amount
       return { id: entry.id, ticket: entry.ticket, amount: entry.amount }
     },
 
-    // -- Draw CRUD --
-    _mockDraws: [] as OpenDrawInfo[],
-    _nextDrawId: 1,
-    _nextBlacklistId: 1,
-    _nextWinningId: 1,
-    _mockBlacklist: [] as Array<{ id: number; drawId: number; ticket: string; type: string }>,
-    _mockWinnings: [] as Array<{ id: number; drawId: number; ticket: string; type: string }>,
-
-    // -- Agent & Master Dealer --
-    _mockAgents: [] as Agent[],
-    _mockMasterDealers: [] as MasterDealer[],
-
-    // -- Sales & Batches --
-    _mockSales: [] as SaleRecord[],
-    _nextSaleId: 1,
-    _nextBatchId: 1,
-    _mockBatches: [] as Array<{ id: number; drawId: number; agentId: string; totalAmount: number }>,
-    _mockOffloads: [] as OffloadRecord[],
-    _nextOffloadId: 1,
-    _mockOffloadConfig: {
-      adminHold: 5000,
-      maxOffloadAmount: 500000,
-      maxOffloadTicket: 60,
-      offloadPageNumber: 1,
+    async get_all_draws() {
+      return [..._mockDraws].reverse()
     },
-
-    async get_all_draws(this: MockState) {
-      return [...this._mockDraws].reverse()
-    },
-    async get_draw(this: MockState, draw_id: number) {
-      const d = this._mockDraws.find((x) => x.id === draw_id)
+    async get_draw(draw_id: number) {
+      const d = _mockDraws.find((x) => x.id === draw_id)
       return d ?? { error: `Draw ${draw_id} not found.` }
     },
-    async update_draw(this: MockState, draw_id: number, open_date?: string, cutoff_time?: string, house_holding_amount?: number, note?: string) {
-      const d = this._mockDraws.find((x) => x.id === draw_id)
+    async update_draw(draw_id: number, open_date?: string, cutoff_time?: string, house_holding_amount?: number, note?: string) {
+      const d = _mockDraws.find((x) => x.id === draw_id)
       if (!d) return { error: `Draw ${draw_id} not found.` }
       if (open_date !== undefined && open_date !== null) d.openDate = open_date
       if (cutoff_time !== undefined && cutoff_time !== null) d.cutoffTime = cutoff_time
@@ -240,54 +214,54 @@ function getAPI(): PywebviewAPI {
       if (note !== undefined) d.note = note
       return { id: d.id, status: d.status }
     },
-    async delete_draw(this: MockState, draw_id: number) {
-      const idx = this._mockDraws.findIndex((x) => x.id === draw_id)
+    async delete_draw(draw_id: number) {
+      const idx = _mockDraws.findIndex((x) => x.id === draw_id)
       if (idx === -1) return { error: `Draw ${draw_id} not found.` }
-      this._mockDraws.splice(idx, 1)
+      _mockDraws.splice(idx, 1)
       return { ok: true }
     },
-    async get_blacklist_tickets(this: MockState, draw_id: number) {
-      return this._mockBlacklist.filter((t) => t.drawId === draw_id)
+    async get_blacklist_tickets(draw_id: number) {
+      return _mockBlacklist.filter((t) => t.drawId === draw_id)
     },
-    async create_blacklist_ticket(this: MockState, draw_id: number, ticket: string, ticket_type: string) {
-      const entry = { id: this._nextBlacklistId++, drawId: draw_id, ticket, type: ticket_type }
-      this._mockBlacklist.push(entry)
+    async create_blacklist_ticket(draw_id: number, ticket: string, ticket_type: string) {
+      const entry = { id: _nextBlacklistId++, drawId: draw_id, ticket, type: ticket_type }
+      _mockBlacklist.push(entry)
       return { id: entry.id, ticket: entry.ticket, type: entry.type }
     },
-    async delete_blacklist_ticket(this: MockState, ticket_id: number) {
-      const idx = this._mockBlacklist.findIndex((t) => t.id === ticket_id)
+    async delete_blacklist_ticket(ticket_id: number) {
+      const idx = _mockBlacklist.findIndex((t) => t.id === ticket_id)
       if (idx === -1) return { error: `Blacklist ticket ${ticket_id} not found.` }
-      this._mockBlacklist.splice(idx, 1)
+      _mockBlacklist.splice(idx, 1)
       return { ok: true }
     },
-    async get_winning_tickets(this: MockState, draw_id: number) {
-      return this._mockWinnings.filter((t) => t.drawId === draw_id)
+    async get_winning_tickets(draw_id: number) {
+      return _mockWinnings.filter((t) => t.drawId === draw_id)
     },
-    async create_winning_ticket(this: MockState, draw_id: number, ticket: string, ticket_type: string) {
-      const entry = { id: this._nextWinningId++, drawId: draw_id, ticket, type: ticket_type }
-      this._mockWinnings.push(entry)
+    async create_winning_ticket(draw_id: number, ticket: string, ticket_type: string) {
+      const entry = { id: _nextWinningId++, drawId: draw_id, ticket, type: ticket_type }
+      _mockWinnings.push(entry)
       return { id: entry.id, ticket: entry.ticket, type: entry.type }
     },
-    async delete_winning_ticket(this: MockState, ticket_id: number) {
-      const idx = this._mockWinnings.findIndex((t) => t.id === ticket_id)
+    async delete_winning_ticket(ticket_id: number) {
+      const idx = _mockWinnings.findIndex((t) => t.id === ticket_id)
       if (idx === -1) return { error: `Winning ticket ${ticket_id} not found.` }
-      this._mockWinnings.splice(idx, 1)
+      _mockWinnings.splice(idx, 1)
       return { ok: true }
     },
 
     // -- Agents --
-    async get_all_agents(this: MockState) {
-      return [...this._mockAgents]
+    async get_all_agents() {
+      return [..._mockAgents]
     },
-    async create_agent(this: MockState, id: string, name: string, commission?: number, jp_factor?: number, sp_factor?: number, note?: string) {
-      const exists = this._mockAgents.find((a) => a.id === id)
+    async create_agent(id: string, name: string, commission?: number, jp_factor?: number, sp_factor?: number, note?: string) {
+      const exists = _mockAgents.find((a) => a.id === id)
       if (exists) return { error: `Agent ${id} already exists.` }
       const entry: Agent = { id, name, commission: commission ?? 0, jpFactor: jp_factor ?? 0, spFactor: sp_factor ?? 0, note: note ?? null }
-      this._mockAgents.push(entry)
+      _mockAgents.push(entry)
       return { id: entry.id, name: entry.name }
     },
-    async update_agent(this: MockState, agent_id: string, name?: string, commission?: number, jp_factor?: number, sp_factor?: number, note?: string) {
-      const a = this._mockAgents.find((x) => x.id === agent_id)
+    async update_agent(agent_id: string, name?: string, commission?: number, jp_factor?: number, sp_factor?: number, note?: string) {
+      const a = _mockAgents.find((x) => x.id === agent_id)
       if (!a) return { error: `Agent ${agent_id} not found.` }
       if (name !== undefined) a.name = name
       if (commission !== undefined && commission !== null) a.commission = commission
@@ -296,26 +270,26 @@ function getAPI(): PywebviewAPI {
       if (note !== undefined) a.note = note
       return { id: a.id, name: a.name }
     },
-    async delete_agent(this: MockState, agent_id: string) {
-      const idx = this._mockAgents.findIndex((a) => a.id === agent_id)
+    async delete_agent(agent_id: string) {
+      const idx = _mockAgents.findIndex((a) => a.id === agent_id)
       if (idx === -1) return { error: `Agent ${agent_id} not found.` }
-      this._mockAgents.splice(idx, 1)
+      _mockAgents.splice(idx, 1)
       return { ok: true }
     },
 
     // -- Master Dealers --
-    async get_all_master_dealers(this: MockState) {
-      return [...this._mockMasterDealers]
+    async get_all_master_dealers() {
+      return [..._mockMasterDealers]
     },
-    async create_master_dealer(this: MockState, id: string, name: string, commission?: number, jp_factor?: number, sp_factor?: number, note?: string) {
-      const exists = this._mockMasterDealers.find((d) => d.id === id)
+    async create_master_dealer(id: string, name: string, commission?: number, jp_factor?: number, sp_factor?: number, note?: string) {
+      const exists = _mockMasterDealers.find((d) => d.id === id)
       if (exists) return { error: `Master Dealer ${id} already exists.` }
       const entry: MasterDealer = { id, name, commission: commission ?? 0, jpFactor: jp_factor ?? 0, spFactor: sp_factor ?? 0, note: note ?? null }
-      this._mockMasterDealers.push(entry)
+      _mockMasterDealers.push(entry)
       return { id: entry.id, name: entry.name }
     },
-    async update_master_dealer(this: MockState, dealer_id: string, name?: string, commission?: number, jp_factor?: number, sp_factor?: number, note?: string) {
-      const d = this._mockMasterDealers.find((x) => x.id === dealer_id)
+    async update_master_dealer(dealer_id: string, name?: string, commission?: number, jp_factor?: number, sp_factor?: number, note?: string) {
+      const d = _mockMasterDealers.find((x) => x.id === dealer_id)
       if (!d) return { error: `Master Dealer ${dealer_id} not found.` }
       if (name !== undefined) d.name = name
       if (commission !== undefined && commission !== null) d.commission = commission
@@ -324,38 +298,37 @@ function getAPI(): PywebviewAPI {
       if (note !== undefined) d.note = note
       return { id: d.id, name: d.name }
     },
-    async delete_master_dealer(this: MockState, dealer_id: string) {
-      const idx = this._mockMasterDealers.findIndex((d) => d.id === dealer_id)
+    async delete_master_dealer(dealer_id: string) {
+      const idx = _mockMasterDealers.findIndex((d) => d.id === dealer_id)
       if (idx === -1) return { error: `Master Dealer ${dealer_id} not found.` }
-      this._mockMasterDealers.splice(idx, 1)
+      _mockMasterDealers.splice(idx, 1)
       return { ok: true }
     },
 
     // -- Sales & Batches --
-    async get_sales_by_draw(this: MockState, draw_id: number) {
-      return this._mockSales
+    async get_sales_by_draw(draw_id: number) {
+      return _mockSales
         .filter((s) => s.drawId === draw_id)
         .sort((a, b) => b.id - a.id)
     },
-    async get_or_create_batch(this: MockState, draw_id: number, agent_id: string) {
-      let batch = this._mockBatches.find((b) => b.drawId === draw_id && b.agentId === agent_id)
+    async get_or_create_batch(draw_id: number, agent_id: string) {
+      let batch = _mockBatches.find((b) => b.drawId === draw_id && b.agentId === agent_id)
       if (!batch) {
-        batch = { id: this._nextBatchId++, drawId: draw_id, agentId: agent_id, totalAmount: 0 }
-        this._mockBatches.push(batch)
+        batch = { id: _nextBatchId++, drawId: draw_id, agentId: agent_id, totalAmount: 0 }
+        _mockBatches.push(batch)
       }
       return { id: batch.id, drawId: batch.drawId, agentId: batch.agentId }
     },
 
     // -- Offload / Risk --
 
-    async get_risk_breakdown(this: MockState, draw_id: number) {
-      const sales = this._mockSales.filter((s) => s.drawId === draw_id)
-      const offloads = this._mockOffloads.filter((o) => o.drawId === draw_id)
-      const blocked = this._mockBlacklist
+    async get_risk_breakdown(draw_id: number) {
+      const sales = _mockSales.filter((s) => s.drawId === draw_id)
+      const offloads = _mockOffloads.filter((o) => o.drawId === draw_id)
+      const blocked = _mockBlacklist
         .filter((b) => b.drawId === draw_id && b.type === 'BLOCK')
         .map((b) => b.ticket)
 
-      // Aggregate sales by ticket
       const ticketMap = new Map<string, { totalSales: number; offloaded: number }>()
       for (const s of sales) {
         const entry = ticketMap.get(s.ticket) || { totalSales: 0, offloaded: 0 }
@@ -370,7 +343,7 @@ function getAPI(): PywebviewAPI {
 
       const allTickets: TicketRisk[] = []
       for (const [ticket, data] of ticketMap) {
-        const effectiveHold = blocked.includes(ticket) ? 0 : this._mockOffloadConfig.adminHold
+        const effectiveHold = blocked.includes(ticket) ? 0 : _mockOffloadConfig.adminHold
         const holding = Math.min(data.totalSales, effectiveHold)
         const pending = Math.max(data.totalSales - effectiveHold - data.offloaded, 0)
         allTickets.push({
@@ -389,16 +362,16 @@ function getAPI(): PywebviewAPI {
         pending: allTickets
           .filter((t) => t.pending > 0)
           .sort((a, b) => b.pending - a.pending)
-          .slice(0, this._mockOffloadConfig.maxOffloadTicket),
+          .slice(0, _mockOffloadConfig.maxOffloadTicket),
       }
     },
 
-    async create_offload(this: MockState, draw_id: number, master_dealer_id: string, entries_json: string, page_no: number, note?: string) {
+    async create_offload(draw_id: number, master_dealer_id: string, entries_json: string, page_no: number, note?: string) {
       const entries: Array<{ ticket: string; amount: number }> = JSON.parse(entries_json)
       const records: Array<{ id: number; ticket: string; amount: number; pageNo: number; masterDealerId: string }> = []
       for (const entry of entries) {
         const record: OffloadRecord = {
-          id: this._nextOffloadId++,
+          id: _nextOffloadId++,
           drawId: draw_id,
           masterDealerId: master_dealer_id,
           pageNo: page_no,
@@ -407,45 +380,44 @@ function getAPI(): PywebviewAPI {
           note: note ?? null,
           createdAt: new Date().toISOString(),
         }
-        this._mockOffloads.push(record)
+        _mockOffloads.push(record)
         records.push({ id: record.id, ticket: record.ticket, amount: record.amount, pageNo: record.pageNo, masterDealerId: record.masterDealerId })
       }
       return { records, count: records.length }
     },
 
-    async get_offload_history(this: MockState, draw_id: number) {
-      return this._mockOffloads
+    async get_offload_history(draw_id: number) {
+      return _mockOffloads
         .filter((o) => o.drawId === draw_id)
         .sort((a, b) => b.id - a.id)
     },
 
-    async get_offload_config(this: MockState) {
-      return { ...this._mockOffloadConfig }
+    async get_offload_config() {
+      return { ..._mockOffloadConfig }
     },
 
-    async update_offload_config(this: MockState, key: string, value: string) {
+    async update_offload_config(key: string, value: string) {
       const numValue = parseInt(value, 10)
-      if (key === 'adminHold') this._mockOffloadConfig.adminHold = numValue
-      else if (key === 'maxOffloadAmount') this._mockOffloadConfig.maxOffloadAmount = numValue
-      else if (key === 'maxOffloadTicket') this._mockOffloadConfig.maxOffloadTicket = numValue
-      else if (key === 'offloadPageNumber') this._mockOffloadConfig.offloadPageNumber = numValue
+      if (key === 'adminHold') _mockOffloadConfig.adminHold = numValue
+      else if (key === 'maxOffloadAmount') _mockOffloadConfig.maxOffloadAmount = numValue
+      else if (key === 'maxOffloadTicket') _mockOffloadConfig.maxOffloadTicket = numValue
+      else if (key === 'offloadPageNumber') _mockOffloadConfig.offloadPageNumber = numValue
       return { ok: true }
     },
 
     // -- Report --
 
-    async generate_report(this: MockState, draw_id: number) {
-      const draw = this._mockDraws.find((d) => d.id === draw_id)
+    async generate_report(draw_id: number) {
+      const draw = _mockDraws.find((d) => d.id === draw_id)
       if (!draw) return { error: `Draw ${draw_id} not found.` }
 
-      const agentMap = new Map(this._mockAgents.map((a) => [a.id, a]))
-      const dealerMap = new Map(this._mockMasterDealers.map((d) => [d.id, d]))
-      const winners = this._mockWinnings.filter((w) => w.drawId === draw_id)
+      const agentMap = new Map(_mockAgents.map((a) => [a.id, a]))
+      const dealerMap = new Map(_mockMasterDealers.map((d) => [d.id, d]))
+      const winners = _mockWinnings.filter((w) => w.drawId === draw_id)
       const hasWinners = winners.length > 0
 
-      // Agent sections
       const salesByAgent = new Map<string, number>()
-      for (const s of this._mockSales.filter((s) => s.drawId === draw_id)) {
+      for (const s of _mockSales.filter((s) => s.drawId === draw_id)) {
         salesByAgent.set(s.agentId, (salesByAgent.get(s.agentId) || 0) + s.amount)
       }
 
@@ -457,11 +429,11 @@ function getAPI(): PywebviewAPI {
         const subtotal = totalSales - commission
 
         const wtDetails = winners.map((wt) => {
-          const agentSalesForTicket = this._mockSales
+          const agentSalesForTicket = _mockSales
             .filter((s) => s.drawId === draw_id && s.agentId === agentId && s.ticket === wt.ticket)
             .reduce((sum, s) => sum + s.amount, 0)
           if (agentSalesForTicket === 0) return null
-          const isHalf = this._mockBlacklist.some(
+          const isHalf = _mockBlacklist.some(
             (b) => b.drawId === draw_id && b.ticket === wt.ticket && b.type === 'HALF'
           )
           const factor = wt.type === 'Jackpot' ? agent.jpFactor : agent.spFactor
@@ -473,9 +445,8 @@ function getAPI(): PywebviewAPI {
         agents.push({ agentId, agentName: agent.name, totalSaleAmount: totalSales, commissionPaid: commission, subtotal, winningTickets: wtDetails, total })
       }
 
-      // Dealer sections
       const offloadsByDealer = new Map<string, number>()
-      for (const o of this._mockOffloads.filter((o) => o.drawId === draw_id)) {
+      for (const o of _mockOffloads.filter((o) => o.drawId === draw_id)) {
         offloadsByDealer.set(o.masterDealerId, (offloadsByDealer.get(o.masterDealerId) || 0) + o.amount)
       }
 
@@ -487,11 +458,11 @@ function getAPI(): PywebviewAPI {
         const subtotal = totalOffloaded - commission
 
         const wtDetails = winners.map((wt) => {
-          const dealerOffloadsForTicket = this._mockOffloads
+          const dealerOffloadsForTicket = _mockOffloads
             .filter((o) => o.drawId === draw_id && o.masterDealerId === dealerId && o.ticket === wt.ticket)
             .reduce((sum, o) => sum + o.amount, 0)
           if (dealerOffloadsForTicket === 0) return null
-          const isHalf = this._mockBlacklist.some(
+          const isHalf = _mockBlacklist.some(
             (b) => b.drawId === draw_id && b.ticket === wt.ticket && b.type === 'HALF'
           )
           const factor = wt.type === 'Jackpot' ? dealer.jpFactor : dealer.spFactor
@@ -503,7 +474,6 @@ function getAPI(): PywebviewAPI {
         dealers.push({ dealerId, dealerName: dealer.name, totalOffloadedAmount: totalOffloaded, commissionToAdmin: commission, subtotal, winningTickets: wtDetails, total })
       }
 
-      // Admin section
       const totalSales = agents.reduce((sum, a) => sum + a.totalSaleAmount, 0)
       const totalCommission = agents.reduce((sum, a) => sum + a.commissionPaid, 0)
       const subtotalSales = totalSales - totalCommission
@@ -513,22 +483,21 @@ function getAPI(): PywebviewAPI {
 
       const adminWt: ReportData['admin']['winningTickets'] = []
       for (const wt of winners) {
-        const totalTicketSales = this._mockSales
+        const totalTicketSales = _mockSales
           .filter((s) => s.drawId === draw_id && s.ticket === wt.ticket)
           .reduce((sum, s) => sum + s.amount, 0)
-        const totalTicketOffloaded = this._mockOffloads
+        const totalTicketOffloaded = _mockOffloads
           .filter((o) => o.drawId === draw_id && o.ticket === wt.ticket)
           .reduce((sum, o) => sum + o.amount, 0)
         const adminHeld = Math.max(totalTicketSales - totalTicketOffloaded, 0)
         if (adminHeld <= 0) continue
 
-        const isHalf = this._mockBlacklist.some(
+        const isHalf = _mockBlacklist.some(
           (b) => b.drawId === draw_id && b.ticket === wt.ticket && b.type === 'HALF'
         )
 
-        // Prorate across agents who sold this ticket
         const agentSalesMap = new Map<string, number>()
-        for (const s of this._mockSales.filter((s) => s.drawId === draw_id && s.ticket === wt.ticket)) {
+        for (const s of _mockSales.filter((s) => s.drawId === draw_id && s.ticket === wt.ticket)) {
           agentSalesMap.set(s.agentId, (agentSalesMap.get(s.agentId) || 0) + s.amount)
         }
 
@@ -581,6 +550,8 @@ function getAPI(): PywebviewAPI {
       return 'mock'
     },
   }
+
+  return mock
 }
 
 export const api = getAPI()

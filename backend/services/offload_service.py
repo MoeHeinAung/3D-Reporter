@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import NamedTuple
 
 from sqlalchemy.orm import Session
@@ -11,8 +11,27 @@ from backend.database.models import Offloaded
 from backend.errors import ConflictError, NotFoundError, ValidationError
 from backend.repositories.blacklist_repository import BlacklistRepository
 from backend.repositories.draw_repository import DrawRepository
+from backend.repositories.master_dealer_repository import MasterDealerRepository
 from backend.repositories.offloaded_repository import OffloadedRepository
 from backend.repositories.sale_repository import SaleRepository
+
+
+def _is_cutoff_passed(open_date: str, cutoff_time: str) -> bool:
+    """Return True if the cutoff datetime has passed.
+
+    Handles both full ISO timestamps and bare HH:MM strings (combined with open_date).
+    """
+    try:
+        cutoff_dt = datetime.fromisoformat(cutoff_time)
+    except ValueError:
+        try:
+            hour, minute = map(int, cutoff_time.split(":"))
+            cutoff_dt = datetime.strptime(f"{open_date}T{hour:02d}:{minute:02d}:00", "%Y-%m-%dT%H:%M:%S")
+        except (ValueError, AttributeError):
+            return False
+    if cutoff_dt.tzinfo is None:
+        cutoff_dt = cutoff_dt.replace(tzinfo=UTC)
+    return datetime.now(UTC) > cutoff_dt
 
 
 class TicketRisk(NamedTuple):
@@ -39,6 +58,7 @@ class OffloadService:
         self._offloaded_repo = OffloadedRepository(session)
         self._blacklist_repo = BlacklistRepository(session)
         self._sale_repo = SaleRepository(session)
+        self._dealer_repo = MasterDealerRepository(session)
 
     # ------------------------------------------------------------------
     # Risk Breakdown
@@ -112,17 +132,30 @@ class OffloadService:
         note: str | None = None,
     ) -> list[Offloaded]:
         """Record a batch offload after validating all business rules."""
+        # Validate master dealer exists
+        dealer = self._dealer_repo.get_by_id(master_dealer_id)
+        if dealer is None:
+            raise NotFoundError(f"Master Dealer {master_dealer_id} not found.")
+
         # Validate draw is OPEN and cutoff not passed
         draw = self._draw_repo.get_by_id(draw_id)
         if draw is None:
             raise NotFoundError(f"Draw {draw_id} not found.")
         if draw.status != "OPEN":
             raise ConflictError("Offloads are only allowed when the draw is OPEN.")
-        if datetime.utcnow().isoformat() > draw.cutoff_time:
+        if _is_cutoff_passed(draw.open_date, draw.cutoff_time):
             raise ConflictError("Offloads are closed: cutoff time has passed.")
 
         if not entries:
             raise ValidationError("At least one offload entry is required.")
+
+        # Precompute totals once — avoid N+1 inside the loop
+        sales_totals = dict(self._sale_repo.get_ticket_totals(draw_id))
+        offload_totals = dict(self._offloaded_repo.get_ticket_totals(draw_id))
+        blocked_tickets = {
+            t.ticket for t in self._blacklist_repo.get_by_draw(draw_id)
+            if t.type == "BLOCK"
+        }
 
         created: list[Offloaded] = []
         for entry in entries:
@@ -136,19 +169,12 @@ class OffloadService:
             if amount <= 0:
                 raise ValidationError(f"Offload amount must be positive, got {amount}.")
 
-            # Calculate pending liability for this ticket
-            sales_total = sum(
-                row[1] for row in self._sale_repo.get_ticket_totals(draw_id)
-                if row[0] == ticket
-            ) or 0
-            offload_total = sum(
-                row[1] for row in self._offloaded_repo.get_ticket_totals(draw_id)
-                if row[0] == ticket
-            ) or 0
-
-            is_blocked = self._blacklist_repo.is_blocked(draw_id, ticket)
+            # Use precomputed totals (with in-memory adjustments for prior entries in this batch)
+            sales_total = sales_totals.get(ticket, 0)
+            already_offloaded = offload_totals.get(ticket, 0)
+            is_blocked = ticket in blocked_tickets
             effective_hold = 0 if is_blocked else admin_hold
-            pending = max(sales_total - effective_hold - offload_total, 0)
+            pending = max(sales_total - effective_hold - already_offloaded, 0)
 
             if amount > pending:
                 raise ValidationError(
@@ -165,6 +191,9 @@ class OffloadService:
                 note=note,
             )
             created.append(record)
+
+            # Track in-memory so subsequent entries in this batch see the accumulated offload
+            offload_totals[ticket] = already_offloaded + amount
 
         return created
 
