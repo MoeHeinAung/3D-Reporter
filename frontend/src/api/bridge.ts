@@ -23,6 +23,7 @@ import type {
   OffloadConfig,
   OffloadRecord,
   OffloadResult,
+  ReportData,
 } from '../types'
 import type { Agent, MasterDealer } from '../types'
 
@@ -70,6 +71,7 @@ interface PywebviewAPI {
   get_offload_history(draw_id: number): Promise<OffloadRecord[] | ApiError>
   get_offload_config(): Promise<OffloadConfig | ApiError>
   update_offload_config(key: string, value: string): Promise<{ ok: boolean } | ApiError>
+  generate_report(draw_id: number): Promise<ReportData | ApiError>
 }
 
 // ---------------------------------------------------------------------------
@@ -428,6 +430,145 @@ function getAPI(): PywebviewAPI {
       else if (key === 'maxOffloadTicket') this._mockOffloadConfig.maxOffloadTicket = numValue
       else if (key === 'offloadPageNumber') this._mockOffloadConfig.offloadPageNumber = numValue
       return { ok: true }
+    },
+
+    // -- Report --
+
+    async generate_report(this: MockState, draw_id: number) {
+      const draw = this._mockDraws.find((d) => d.id === draw_id)
+      if (!draw) return { error: `Draw ${draw_id} not found.` }
+
+      const agentMap = new Map(this._mockAgents.map((a) => [a.id, a]))
+      const dealerMap = new Map(this._mockMasterDealers.map((d) => [d.id, d]))
+      const winners = this._mockWinnings.filter((w) => w.drawId === draw_id)
+      const hasWinners = winners.length > 0
+
+      // Agent sections
+      const salesByAgent = new Map<string, number>()
+      for (const s of this._mockSales.filter((s) => s.drawId === draw_id)) {
+        salesByAgent.set(s.agentId, (salesByAgent.get(s.agentId) || 0) + s.amount)
+      }
+
+      const agents = []
+      for (const [agentId, totalSales] of salesByAgent) {
+        const agent = agentMap.get(agentId)
+        if (!agent) continue
+        const commission = Math.floor(totalSales * agent.commission / 100)
+        const subtotal = totalSales - commission
+
+        const wtDetails = winners.map((wt) => {
+          const agentSalesForTicket = this._mockSales
+            .filter((s) => s.drawId === draw_id && s.agentId === agentId && s.ticket === wt.ticket)
+            .reduce((sum, s) => sum + s.amount, 0)
+          if (agentSalesForTicket === 0) return null
+          const isHalf = this._mockBlacklist.some(
+            (b) => b.drawId === draw_id && b.ticket === wt.ticket && b.type === 'HALF'
+          )
+          const factor = wt.type === 'Jackpot' ? agent.jpFactor : agent.spFactor
+          const payout = isHalf ? Math.floor(agentSalesForTicket * factor / 2) : agentSalesForTicket * factor
+          return { ticket: wt.ticket, type: wt.type as 'Jackpot' | 'Minor', amount: agentSalesForTicket, payout, isHalfBlacklisted: isHalf }
+        }).filter(Boolean) as ReportData['agents'][number]['winningTickets']
+
+        const total = subtotal - wtDetails.reduce((sum, d) => sum + d.payout, 0)
+        agents.push({ agentId, agentName: agent.name, totalSaleAmount: totalSales, commissionPaid: commission, subtotal, winningTickets: wtDetails, total })
+      }
+
+      // Dealer sections
+      const offloadsByDealer = new Map<string, number>()
+      for (const o of this._mockOffloads.filter((o) => o.drawId === draw_id)) {
+        offloadsByDealer.set(o.masterDealerId, (offloadsByDealer.get(o.masterDealerId) || 0) + o.amount)
+      }
+
+      const dealers = []
+      for (const [dealerId, totalOffloaded] of offloadsByDealer) {
+        const dealer = dealerMap.get(dealerId)
+        if (!dealer) continue
+        const commission = Math.floor(totalOffloaded * dealer.commission / 100)
+        const subtotal = totalOffloaded - commission
+
+        const wtDetails = winners.map((wt) => {
+          const dealerOffloadsForTicket = this._mockOffloads
+            .filter((o) => o.drawId === draw_id && o.masterDealerId === dealerId && o.ticket === wt.ticket)
+            .reduce((sum, o) => sum + o.amount, 0)
+          if (dealerOffloadsForTicket === 0) return null
+          const isHalf = this._mockBlacklist.some(
+            (b) => b.drawId === draw_id && b.ticket === wt.ticket && b.type === 'HALF'
+          )
+          const factor = wt.type === 'Jackpot' ? dealer.jpFactor : dealer.spFactor
+          const payout = isHalf ? Math.floor(dealerOffloadsForTicket * factor / 2) : dealerOffloadsForTicket * factor
+          return { ticket: wt.ticket, type: wt.type as 'Jackpot' | 'Minor', amount: dealerOffloadsForTicket, payout, isHalfBlacklisted: isHalf }
+        }).filter(Boolean) as ReportData['dealers'][number]['winningTickets']
+
+        const total = subtotal - wtDetails.reduce((sum, d) => sum + d.payout, 0)
+        dealers.push({ dealerId, dealerName: dealer.name, totalOffloadedAmount: totalOffloaded, commissionToAdmin: commission, subtotal, winningTickets: wtDetails, total })
+      }
+
+      // Admin section
+      const totalSales = agents.reduce((sum, a) => sum + a.totalSaleAmount, 0)
+      const totalCommission = agents.reduce((sum, a) => sum + a.commissionPaid, 0)
+      const subtotalSales = totalSales - totalCommission
+      const totalOffloaded = dealers.reduce((sum, d) => sum + d.totalOffloadedAmount, 0)
+      const totalCommissionMd = dealers.reduce((sum, d) => sum + d.commissionToAdmin, 0)
+      const subtotalOffloads = totalOffloaded - totalCommissionMd
+
+      const adminWt: ReportData['admin']['winningTickets'] = []
+      for (const wt of winners) {
+        const totalTicketSales = this._mockSales
+          .filter((s) => s.drawId === draw_id && s.ticket === wt.ticket)
+          .reduce((sum, s) => sum + s.amount, 0)
+        const totalTicketOffloaded = this._mockOffloads
+          .filter((o) => o.drawId === draw_id && o.ticket === wt.ticket)
+          .reduce((sum, o) => sum + o.amount, 0)
+        const adminHeld = Math.max(totalTicketSales - totalTicketOffloaded, 0)
+        if (adminHeld <= 0) continue
+
+        const isHalf = this._mockBlacklist.some(
+          (b) => b.drawId === draw_id && b.ticket === wt.ticket && b.type === 'HALF'
+        )
+
+        // Prorate across agents who sold this ticket
+        const agentSalesMap = new Map<string, number>()
+        for (const s of this._mockSales.filter((s) => s.drawId === draw_id && s.ticket === wt.ticket)) {
+          agentSalesMap.set(s.agentId, (agentSalesMap.get(s.agentId) || 0) + s.amount)
+        }
+
+        for (const [agentId, agentSales] of agentSalesMap) {
+          const agent = agentMap.get(agentId)
+          if (!agent || totalTicketSales <= 0) continue
+          const prorated = Math.floor((adminHeld * agentSales) / totalTicketSales)
+          if (prorated <= 0) continue
+
+          const factor = wt.type === 'Jackpot' ? agent.jpFactor : agent.spFactor
+          const payout = isHalf ? Math.floor(prorated * factor / 2) : prorated * factor
+
+          adminWt.push({ ticket: wt.ticket, type: wt.type as 'Jackpot' | 'Minor', amount: prorated, payout, isHalfBlacklisted: isHalf })
+        }
+      }
+
+      const allPayouts =
+        agents.reduce((sum, a) => sum + a.winningTickets.reduce((s, d) => s + d.payout, 0), 0) +
+        dealers.reduce((sum, d) => sum + d.winningTickets.reduce((s, wt) => s + wt.payout, 0), 0) +
+        adminWt.reduce((sum, d) => sum + d.payout, 0)
+
+      const grandTotal = subtotalSales + subtotalOffloads + totalCommissionMd - allPayouts
+
+      return {
+        drawId: draw_id,
+        drawStatus: draw.status,
+        hasWinningTickets: hasWinners,
+        agents,
+        dealers,
+        admin: {
+          totalSalesAmount: totalSales,
+          totalCommissionPayable: totalCommission,
+          subtotalSales,
+          totalOffloadedAmount: totalOffloaded,
+          totalCommissionFromMd: totalCommissionMd,
+          subtotalOffloads,
+          winningTickets: adminWt,
+          grandTotal,
+        },
+      }
     },
 
     async echo(message: string) {

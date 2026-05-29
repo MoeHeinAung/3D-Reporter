@@ -111,3 +111,19 @@ This document captures business logic, domain rules, constraints, and core ideas
   - **Sorting:** All four columns (Batch ID, Agent Name, Tickets, Total Amount) are sortable. Clicking a column header sorts ascending; clicking again toggles to descending. A sort arrow indicator (▴/▾) appears on the active column; idle columns show a faint arrow on hover.
   - **Footer:** A fixed footer bar below the table displays "Total Batches: N" and "Total Amount: X" aggregated across all currently filtered records.
 - **Affects:** `frontend/src/pages/Sales.tsx` (`batchGroups`, `sortedGroups`, `filteredSales`), `frontend/src/styles/components/_draws.scss`.
+
+## 2026-05-29 — Financial Report Calculation Engine
+
+- **Source:** User-directed report page specification with dynamic winning ticket integration and export-as-image feature.
+- **Logic:**
+  - **Conditional Rendering:** The report has two modes based on whether winning tickets have been declared for the draw. When no winning tickets exist, only sales and commission data display. When winning tickets are declared, full payout calculations integrate into all sections.
+  - **Commission Formula:** Commission is calculated as `amount * commission_rate / 100` (percentage). E.g., an agent with `commission = 5` receives 5% of total sales as commission.
+  - **Payout Formula:** For Jackpot tickets, payout = `amount * jp_factor`. For Minor tickets, payout = `amount * sp_factor`. If the ticket is HALF-blacklisted, the payout is reduced by 50% (`payout // 2`). Payout factors are per-party: agents use their own `jp_factor`/`sp_factor`, master dealers use their own, and Admin uses the factors of the agent who sold the ticket (since Admin has no factors of its own).
+  - **Winning Ticket Attribution:** A winning ticket appears in ALL sections that touched it. If Agent A sold ticket "123" for 10,000 and Dealer D was offloaded 6,000 of it — the ticket appears in Agent A's section (amount=10,000), Dealer D's section (amount=6,000), and Admin's section (amount=4,000, the unsold remainder). Each party's payout is calculated independently using their own factors.
+  - **Admin-Held Winning Tickets:** For tickets not fully offloaded to dealers, the Admin/House holds the remainder. The admin-held amount is prorated across agents who sold the ticket: `admin_amount * agent_sales / total_ticket_sales`. Each prorated portion uses that agent's payout factors.
+  - **Grand Total:** `SubtotalSales + SubtotalOffloads + CommissionFromMDs - ALL_Payouts`. This is the net Admin/House position — money from sales (minus agent commissions) + money from offloads (net of dealer commissions) + dealer commissions collected - all prize payouts owed.
+  - **Agent Section Total:** `Subtotal - SUM(agent_winning_ticket_payouts)`. For agents with no winning tickets, Total = Subtotal.
+  - **Dealer Section Total:** `Subtotal - SUM(dealer_winning_ticket_payouts)`. For dealers with no winning tickets, Total = Subtotal.
+  - **Draw Filter:** The report works for any draw status (OPEN, CLOSED, SETTLED). A SETTLED draw produces the "final" report; OPEN/CLOSED draws produce an interim report reflecting current sales and offloads.
+  - **Export as Image:** Uses html2canvas to capture a hidden-rendered template at 2x scale with dark background (`#0A0B0E`), downloaded as `Report_Draw{N}.png`.
+- **Affects:** `backend/services/report_service.py`, `backend/api.py`, `frontend/src/pages/Report.tsx`, `frontend/src/types/api.ts`, `frontend/src/api/bridge.ts`.

@@ -1,96 +1,322 @@
-# CURRENT TASK — Offload Functionality (Risk Page)
+# CURRENT TASK — Dynamic Financial Report Page
 
 **Status:** Completed (2026-05-29)
-**Source:** `Docs/Offload-Logic-and-Design.md`
+**Source:** User specification (2026-05-29)
 
 ## Summary
 
-Implement the complete offload workflow into the Risk page, replacing the placeholder with: risk calculation (per-ticket Holding/Offloaded/Pending partitioning), 4-tab status view, master dealer selection, configurable thresholds, KALAW template export with html2canvas PNG download, and offload history tracking.
+Replace the placeholder `Report.tsx` with a full-stack dynamic financial report page. The report generates per-draw settlement summaries with three sections (Agent, Master Dealer, Admin/House), conditional winning ticket integration, and an "Export as Image" feature using html2canvas.
 
-## Core Logic (from Offload-Logic-and-Design.md)
+## Core Logic
+
+### Conditional Rendering System
 
 ```
-Per-ticket risk assessment:
-  effective_hold = 0 if BLOCK-listed else admin_hold
-  holding  = min(total_sales, effective_hold)
-  pending  = max(total_sales - effective_hold - already_offloaded, 0)
-
-Batch offload:
-  OffloadAmount = min(Pending, max_offload_amount)
-
-Prioritization: descending pending liability (highest risk first)
-Grid: 4-column x 15-row KALAW template
+if winning_tickets.length === 0:
+    → Show ONLY sales + commission data (no payout columns)
+if winning_tickets.length > 0:
+    → Show full report with winning ticket details and payout calculations
 ```
 
-## Implementation Steps
+### Data Flow
 
-### 1. Backend Repository Layer
-- [x] `SaleRepository.get_ticket_totals(draw_id)` — aggregate sales by ticket
-- [x] `OffloadedRepository.get_ticket_totals(draw_id)` — aggregate offloads by ticket
-- [x] `OffloadedRepository.get_max_page_no(draw_id)` — highest page number
+```
+User selects Draw → API fetches report data → Backend aggregates:
+  1. Sales by agent (SUM amount, GROUP BY agent_id, ticket)
+  2. Offloads by master dealer (SUM amount, GROUP BY master_dealer_id, ticket)
+  3. Winning tickets for the draw
+  4. Blacklist tickets (HALF affects payout)
+  
+Backend computes per-agent, per-dealer, and consolidated sections
+  → Returns structured ReportData
+  → Frontend renders sections conditionally
+  → User can export as PNG via html2canvas
+```
 
-### 2. Backend Service Layer
-- [x] `OffloadService` (new) — constructor injection pattern matching `SalesService`
-  - [x] `get_risk_breakdown(draw_id, admin_hold, max_offload_ticket)` → `RiskBreakdown`
-  - [x] `create_offload(draw_id, master_dealer_id, entries, page_no, admin_hold, note)` → `list[Offloaded]`
-  - [x] `get_offload_history(draw_id)` → `list[Offloaded]`
-  - [x] `get_offloads_by_dealer(master_dealer_id)` → `list[Offloaded]`
+---
 
-### 3. Backend API Layer
-- [x] `get_risk_breakdown(draw_id)` — bridge method
-- [x] `create_offload(draw_id, master_dealer_id, entries_json, page_no, note)` — bridge method
-- [x] `get_offload_history(draw_id)` — bridge method
-- [x] `get_offload_config()` — read preferences (admin_hold, max_offload_amount, max_offload_ticket, offload_page_number)
-- [x] `update_offload_config(key, value)` — write single preference
-- [x] `_read_offload_config(session)` — helper with defaults (5000, 500000, 60, 1)
+## Report Sections Detail
 
-### 4. Frontend Types
-- [x] `TicketRisk`, `RiskBreakdown`, `OffloadConfig`, `OffloadRecord`, `OffloadResult`
-- [x] `createdAt` added to `Offloaded` domain interface
+### Section 1: Agent Section (per Agent)
 
-### 5. Frontend Bridge
-- [x] 5 new typed method signatures on `PywebviewAPI` interface
-- [x] Full mock implementations with `_mockOffloads`, `_mockOffloadConfig` state
+| Row | Description | Source |
+|-----|-------------|--------|
+| Total Sale Amount | SUM of `sales.amount` WHERE `agent_id` = agent AND `draw_id` = draw | `sales` table |
+| Commission Paid | `Total Sale Amount * agent.commission / 100` (percentage) | `agents.commission` |
+| Subtotal | `Total Sale Amount - Commission Paid` | Calculated |
+| Winning Ticket Details | Only if winning tickets declared AND agent sold a winning ticket | `winning_tickets` + `sales` |
+| — Ticket ID/Info | The winning ticket number + type (Jackpot/Minor) | |
+| — Amount | The sale amount for this ticket by this agent | |
+| — Payout | `Amount * agent.jp_factor` (Jackpot) or `Amount * agent.sp_factor` (Minor), halved if HALF blacklisted | `agents.jp_factor`, `agents.sp_factor`, `blacklist_tickets` |
+| Total | `Subtotal - SUM of all Payouts for this agent` | Calculated |
 
-### 6. Frontend Components
-- [x] `KalawTemplate.tsx` (new) — hidden-rendered 4-col x 15-row ledger
-  - Header: "KALAW" brand, draw date, page number
-  - Body: monospaced table (No., Ticket, Amount, Remark)
-  - Subtotals row, footer with Draw ID + Total Amount
-- [x] `Risk.tsx` (rewrite) — full offload management page
-  - Config bar: Master Dealer dropdown, Draw status, Hold Amt, Max Offload Amt, Max Tickets
-  - 4 tabs: Pending (with selection/editable amounts), Holding, Offloaded, History
-  - Export workflow: create_offload → html2canvas capture → PNG download → page increment
+### Section 2: Master Dealer Section (per Master Dealer)
 
-### 7. Dependencies
-- [x] `html2canvas` added to package.json
+| Row | Description | Source |
+|-----|-------------|--------|
+| Total Offloaded Amount | SUM of `offloaded.amount` WHERE `master_dealer_id` = dealer AND `draw_id` = draw | `offloaded` table |
+| Commission Paid to Admin/House | `Total Offloaded Amount * dealer.commission / 100` | `master_dealers.commission` |
+| Subtotal | `Total Offloaded Amount - Commission Paid` | Calculated |
+| Winning Ticket Details | Only if winning tickets declared AND ticket was offloaded to this dealer | `winning_tickets` + `offloaded` |
+| — Ticket ID/Info | The winning ticket number + type | |
+| — Amount | The offloaded amount for this ticket to this dealer | |
+| — Payout | `Amount * dealer.jp_factor` (Jackpot) or `Amount * dealer.sp_factor` (Minor), halved if HALF | |
+| Total | `Subtotal - SUM of all Payouts for this dealer` | Calculated |
 
-## Files Created
-| File | Purpose |
-|------|---------|
-| `backend/services/offload_service.py` | Core risk calculation + offload creation |
-| `frontend/src/components/KalawTemplate.tsx` | KALAW ledger for html2canvas export |
+### Section 3: Admin/House Section (Consolidated)
 
-## Files Modified
-| File | Change |
-|------|--------|
-| `backend/repositories/sale_repository.py` | Added `get_ticket_totals()` |
-| `backend/repositories/offloaded_repository.py` | Added `get_ticket_totals()`, `get_max_page_no()` |
-| `backend/api.py` | Added 5 bridge methods + `_read_offload_config()` |
-| `frontend/src/types/api.ts` | Added 5 new types |
-| `frontend/src/types/domain.ts` | Added `createdAt` to `Offloaded` |
-| `frontend/src/api/bridge.ts` | Added 5 bridge methods + mocks |
-| `frontend/src/pages/Risk.tsx` | Full rewrite from placeholder |
-| `frontend/package.json` | Added `html2canvas` |
+| Row | Description |
+|-----|-------------|
+| Total Sales Amount | SUM of all Agent "Total Sale Amount" |
+| Total Commission Payable | SUM of all Agent "Commission Paid" |
+| Subtotal A | `Total Sales Amount - Total Commission Payable` |
+| Total Offloaded Amount | SUM of all MD "Total Offloaded Amount" |
+| Total Commission from MDs | SUM of all MD "Commission Paid to Admin" |
+| Subtotal B | `Total Offloaded Amount - Total Commission from MDs` |
+| Winning Ticket Details | Tickets held by Admin/House (sold but NOT fully offloaded) |
+| — Ticket ID/Info | Winning ticket number + type |
+| — Amount | The HOUSE's portion of the winning ticket (total sales - offloaded amount for that ticket) |
+| — Payout | Calculated using Admin's effective rate, halved if HALF |
+| Grand Total | `Subtotal A + Subtotal B + Commission from MDs - All Payouts` |
 
-## Architectural Decisions
-- **Settings persistence:** `admin_hold`, `max_offload_amount`, `max_offload_ticket`, `offload_page_number` stored in `preferences` table (key-value), following `ThemeService` pattern.
-- **`house_holding_amount` on Draw** is NOT used for per-ticket admin_hold. The global `admin_hold` preference is the per-ticket threshold.
-- **Risk calculation lives in backend** (`OffloadService`), not in a frontend selector (follows 5-layer rule: domain logic in service layer).
-- **`RiskService` / `get_risk_telemetry()`** left untouched for future Nightingale chart feature.
+---
 
-## Verification
-- Backend tests: 22/22 passed
-- TypeScript: zero type errors (`tsc --noEmit`)
-- Python imports: all modules load cleanly
-- Lint: 3 `set-state-in-effect` warnings (pre-existing pattern used by all pages)
+## Winning Ticket Attribution Logic
+
+For each winning ticket, determine who "holds" it:
+
+```
+1. Find all sales for the winning ticket number in this draw
+2. Find all offloads for the winning ticket number in this draw
+3. For each sale:
+   a. If the full amount was offloaded to a master dealer → dealer holds it
+   b. If partially offloaded → remaining amount is held by Admin/House
+   c. If not offloaded at all → held by the Agent (who sold it)
+```
+
+Actually, let me simplify: the "holder" of a winning ticket liability follows the money:
+
+- **Agent holds**: A winning ticket the agent sold that was NOT offloaded (the sale stays with agent)
+- **Master Dealer holds**: A winning ticket that was offloaded to them
+- **Admin/House holds**: A winning ticket where the sale amount exceeds the offloaded amount (the "gap"), or tickets sold by agents that were never offloaded but where the house has direct liability
+
+**Simplified rule**: 
+- If a ticket was sold by an agent → appears in that Agent's section (for the sale amount)
+- If a ticket was offloaded to a MD → appears in that MD's section (for the offloaded amount)
+- The remaining/house portion = sale amount - offloaded amount (if any), shown in Admin section
+
+> **OPEN QUESTION for user**: Should a winning ticket appear in MULTIPLE sections (e.g., agent section for the sold portion AND dealer section for the offloaded portion)? Or should it appear ONLY where the liability ultimately lies?
+
+---
+
+## Implementation Plan
+
+### Backend
+
+#### 1. New Repository Query Methods
+
+**`backend/repositories/sale_repository.py`** — Add:
+- `get_sales_grouped_by_agent(draw_id)` → `list[tuple[str, int]]` (agent_id, total_amount)
+- `get_sales_by_ticket_and_agent(draw_id, ticket)` → `list[Sale]` (for winning ticket attribution)
+
+**`backend/repositories/offloaded_repository.py`** — Add:
+- `get_offloads_grouped_by_dealer(draw_id)` → `list[tuple[str, int]]` (dealer_id, total_amount)
+- `get_offloads_by_ticket_and_dealer(draw_id, ticket)` → `list[Offloaded]` (for winning ticket attribution)
+
+#### 2. New ReportService
+
+**`backend/services/report_service.py`** (NEW):
+- `__init__(session)` — inject SaleRepository, OffloadedRepository, AgentRepository, MasterDealerRepository, WinningRepository, BlacklistRepository, DrawRepository
+- `generate_report(draw_id)` → `ReportData` named tuple
+  - Validates draw exists
+  - Fetches all agents and master dealers
+  - Aggregates sales by agent
+  - Aggregates offloads by dealer
+  - Fetches winning tickets and blacklist
+  - Computes per-agent sections with commission and payout
+  - Computes per-dealer sections with commission and payout
+  - Computes consolidated admin section
+  - Returns structured `ReportData`
+
+**Named Tuples / Types:**
+
+```python
+class AgentReportLine(NamedTuple):
+    agent_id: str
+    agent_name: str
+    total_sale_amount: int
+    commission_paid: int
+    subtotal: int
+    winning_tickets: list[WinningTicketDetail]  # empty if no winners
+    total: int
+
+class DealerReportLine(NamedTuple):
+    dealer_id: str
+    dealer_name: str
+    total_offloaded_amount: int
+    commission_to_admin: int
+    subtotal: int
+    winning_tickets: list[WinningTicketDetail]
+    total: int
+
+class AdminReportSection(NamedTuple):
+    total_sales_amount: int
+    total_commission_payable: int
+    subtotal_sales: int
+    total_offloaded_amount: int
+    total_commission_from_md: int
+    subtotal_offloads: int
+    winning_tickets: list[WinningTicketDetail]
+    grand_total: int
+
+class WinningTicketDetail(NamedTuple):
+    ticket: str
+    type: str  # 'Jackpot' or 'Minor'
+    amount: int  # sale/offload amount relevant to this holder
+    payout: int  # calculated payout
+    is_half_blacklisted: bool
+
+class ReportData(NamedTuple):
+    draw_id: int
+    draw_status: str
+    has_winning_tickets: bool  # drives conditional rendering
+    agents: list[AgentReportLine]
+    dealers: list[DealerReportLine]
+    admin: AdminReportSection
+```
+
+#### 3. API Bridge Methods
+
+**`backend/api.py`** — Add:
+- `generate_report(draw_id: int)` → `dict` — delegates to `ReportService.generate_report()`, serializes named tuples to camelCase dicts
+
+### Frontend
+
+#### 4. TypeScript Types
+
+**`frontend/src/types/api.ts`** — Add:
+```typescript
+interface WinningTicketDetail {
+  ticket: string
+  type: 'Jackpot' | 'Minor'
+  amount: number
+  payout: number
+  isHalfBlacklisted: boolean
+}
+
+interface AgentReportLine {
+  agentId: string
+  agentName: string
+  totalSaleAmount: number
+  commissionPaid: number
+  subtotal: number
+  winningTickets: WinningTicketDetail[]
+  total: number
+}
+
+interface DealerReportLine {
+  dealerId: string
+  dealerName: string
+  totalOffloadedAmount: number
+  commissionToAdmin: number
+  subtotal: number
+  winningTickets: WinningTicketDetail[]
+  total: number
+}
+
+interface AdminReportSection {
+  totalSalesAmount: number
+  totalCommissionPayable: number
+  subtotalSales: number
+  totalOffloadedAmount: number
+  totalCommissionFromMd: number
+  subtotalOffloads: number
+  winningTickets: WinningTicketDetail[]
+  grandTotal: number
+}
+
+interface ReportData {
+  drawId: number
+  drawStatus: string
+  hasWinningTickets: boolean
+  agents: AgentReportLine[]
+  dealers: DealerReportLine[]
+  admin: AdminReportSection
+}
+```
+
+#### 5. Frontend Bridge
+
+**`frontend/src/api/bridge.ts`** — Add:
+- `generate_report(draw_id: number): Promise<ApiResult<ReportData>>` — typed method
+- Mock implementation returning sample data for development (all 3 sections, with and without winning tickets based on mock state)
+
+#### 6. Frontend Page
+
+**`frontend/src/pages/Report.tsx`** — Full rewrite:
+
+**Layout (12x8 grid):**
+- Row 1 (span 12): Draw selector dropdown + "Export as Image" button
+- Row 2-8 (span 12): Report content card with internal scroll
+
+**Report Content (inside card):**
+- **No winners state**: Simple table layout showing only Agent section + Admin consolidated (sales/commission only)
+- **Winners declared state**: Full three-section report
+
+**Conditional Sections:**
+```
+{!reportData.hasWinningTickets ? (
+  <SimpleReport />   // Agent sales + commission only
+) : (
+  <FullReport />     // All 3 sections with winning details
+)}
+```
+
+**Export as Image:**
+- Use `html2canvas` pattern from Risk.tsx (already imported)
+- Hidden-rendered clean report template (no grid background, white/print-friendly)
+- Capture → auto-download as PNG with draw ID in filename
+
+**States:**
+- Loading: scanline animation placeholder
+- Error: inline error banner with retry
+- Empty: "Select a draw to generate report"
+- No sales: "No sales data for this draw"
+- Normal: rendered report
+
+#### 7. SCSS Styles
+
+**`frontend/src/styles/components/_report.scss`** (NEW):
+- `.report__section` — glassmorphism card within the main card
+- `.report__table` — monospaced financial table (JetBrains Mono)
+- `.report__total-row` — highlighted summary rows with cyan accent
+- `.report__winning-row` — Neural Violet highlight for winning ticket rows
+- `.report__export-template` — clean white background for html2canvas capture
+- `.report__grand-total` — prominent final total with Striker Blue glow
+
+---
+
+## Files Checklist
+
+| Layer | File | Action |
+|-------|------|--------|
+| Repository | `backend/repositories/sale_repository.py` | Add 2 query methods |
+| Repository | `backend/repositories/offloaded_repository.py` | Add 2 query methods |
+| Service | `backend/services/report_service.py` | **CREATE** — all report calculation logic |
+| API | `backend/api.py` | Add `generate_report()` bridge method |
+| Types | `frontend/src/types/api.ts` | Add 5 new interfaces |
+| Bridge | `frontend/src/api/bridge.ts` | Add `generate_report()` + mock |
+| Page | `frontend/src/pages/Report.tsx` | Full rewrite from placeholder |
+| Styles | `frontend/src/styles/components/_report.scss` | **CREATE** — report-specific styles |
+| Styles | `frontend/src/styles/main.scss` | Import `_report.scss` |
+
+---
+
+## Confirmed Business Rules (2026-05-29)
+
+1. **Commission formula**: `amount * commission / 100` (percentage). E.g., commission=5 means 5%.
+2. **Payout formula**: `amount * jp_factor` for Jackpot, `amount * sp_factor` for Minor (multipliers). HALF blacklist = 50% reduction on payout.
+3. **Winning ticket attribution**: A winning ticket appears in **ALL** sections that touched it (agent, dealer, admin).
+4. **Admin payout rate**: Admin uses the **agent's** `jp_factor`/`sp_factor` (the agent who sold that ticket).
+5. **Grand Total**: `Subtotal A + Subtotal B + Commission from MDs - ALL Payouts` (net Admin/House position).
+6. **Draw filter**: Report works for any draw status (OPEN, CLOSED, SETTLED). On SETTLED it becomes final.

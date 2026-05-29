@@ -25,6 +25,7 @@ from backend.services.blacklist_service import BlacklistService
 from backend.services.draw_service import DrawService
 from backend.services.master_dealer_service import MasterDealerService
 from backend.services.offload_service import OffloadService
+from backend.services.report_service import ReportService
 from backend.services.risk_service import RiskService
 from backend.services.sales_service import SalesService
 from backend.services.system_service import SystemService
@@ -406,6 +407,64 @@ class API:
             else:
                 s.add(Preference(key=key, value=value))
             return {"ok": True, "key": key, "value": value}
+        return self._with_session(_do)
+
+    # ------------------------------------------------------------------
+    # Report
+    # ------------------------------------------------------------------
+
+    def generate_report(self, draw_id: int) -> dict[str, Any]:
+        def _do(s: Any) -> dict[str, Any]:
+            report = ReportService(s).generate_report(draw_id)
+
+            def _wt(detail: Any) -> dict[str, Any]:
+                return {
+                    "ticket": detail.ticket,
+                    "type": detail.type,
+                    "amount": detail.amount,
+                    "payout": detail.payout,
+                    "isHalfBlacklisted": detail.is_half_blacklisted,
+                }
+
+            return {
+                "drawId": report.draw_id,
+                "drawStatus": report.draw_status,
+                "hasWinningTickets": report.has_winning_tickets,
+                "agents": [
+                    {
+                        "agentId": a.agent_id,
+                        "agentName": a.agent_name,
+                        "totalSaleAmount": a.total_sale_amount,
+                        "commissionPaid": a.commission_paid,
+                        "subtotal": a.subtotal,
+                        "winningTickets": [_wt(d) for d in a.winning_tickets],
+                        "total": a.total,
+                    }
+                    for a in report.agents
+                ],
+                "dealers": [
+                    {
+                        "dealerId": d.dealer_id,
+                        "dealerName": d.dealer_name,
+                        "totalOffloadedAmount": d.total_offloaded_amount,
+                        "commissionToAdmin": d.commission_to_admin,
+                        "subtotal": d.subtotal,
+                        "winningTickets": [_wt(d) for d in d.winning_tickets],
+                        "total": d.total,
+                    }
+                    for d in report.dealers
+                ],
+                "admin": {
+                    "totalSalesAmount": report.admin.total_sales_amount,
+                    "totalCommissionPayable": report.admin.total_commission_payable,
+                    "subtotalSales": report.admin.subtotal_sales,
+                    "totalOffloadedAmount": report.admin.total_offloaded_amount,
+                    "totalCommissionFromMd": report.admin.total_commission_from_md,
+                    "subtotalOffloads": report.admin.subtotal_offloads,
+                    "winningTickets": [_wt(d) for d in report.admin.winning_tickets],
+                    "grandTotal": report.admin.grand_total,
+                },
+            }
         return self._with_session(_do)
 
     # ------------------------------------------------------------------

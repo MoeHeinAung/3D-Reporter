@@ -1,0 +1,160 @@
+// ============================================================================
+// REPORT PAGE — Financial Report Sections & Tables
+// ============================================================================
+
+// Section wrapper
+.report__section {
+  &-title {
+    font-family: Tektur, sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    color: #00F0FF;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-bottom: 1px solid #2D323E;
+    padding-bottom: 6px;
+    margin: 0 0 12px;
+  }
+
+  &--admin {
+    border-top: 1px solid rgba(0, 240, 255, 0.2);
+    padding-top: 4px;
+  }
+}
+
+// Per-agent / per-dealer card within the section
+.report__party-card {
+  margin-bottom: 14px;
+  padding: 10px 12px;
+  border: 1px solid rgba(45, 50, 62, 0.6);
+  border-radius: 4px;
+  background: rgba(20, 22, 28, 0.3);
+}
+
+.report__party-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 8px;
+}
+
+.report__party-name {
+  font-family: Instrument Sans, sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: #e0e0e0;
+}
+
+.report__party-id {
+  font-family: JetBrains Mono, monospace;
+  font-size: 10px;
+  color: #666;
+}
+
+// Financial data table
+.report__table {
+  width: 100%;
+  font-family: JetBrains Mono, monospace;
+  font-size: 11px;
+  color: #b0b0b0;
+  border-collapse: collapse;
+
+  td {
+    padding: 3px 8px;
+    vertical-align: top;
+  }
+
+  &--admin {
+    font-size: 12px;
+
+    td {
+      padding: 4px 10px;
+    }
+  }
+}
+
+.report__num {
+  text-align: right;
+  white-space: nowrap;
+}
+
+// Subtotal rows (cyan accent)
+.report__subtotal-row {
+  td {
+    border-top: 1px solid #2D323E;
+    color: #00F0FF;
+    font-weight: 500;
+  }
+}
+
+// Total rows (bold cyan)
+.report__total-row {
+  td {
+    border-top: 2px solid #00F0FF;
+    color: #00F0FF;
+    font-weight: 700;
+    font-size: 12px;
+    padding-top: 5px;
+    padding-bottom: 5px;
+  }
+}
+
+// Grand total (prominent)
+.report__grand-total-row {
+  td {
+    border-top: 2px solid #00F0FF;
+    color: #00F0FF;
+    font-weight: 700;
+    font-size: 14px;
+    padding: 8px 10px;
+    text-shadow: 0 0 8px rgba(0, 240, 255, 0.3);
+  }
+}
+
+// Winning ticket sub-header
+.report__wt-header {
+  font-family: Instrument Sans, sans-serif;
+  font-size: 10px;
+  color: #8A2BE2;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 6px 8px 2px !important;
+}
+
+// Winning ticket rows
+.report__wt-row {
+  td {
+    color: #a080d0;
+    font-size: 10px;
+  }
+}
+
+.report__wt-ticket {
+  font-family: JetBrains Mono, monospace;
+  font-weight: 600;
+  color: #b080e0;
+  margin-right: 6px;
+}
+
+.report__wt-type {
+  font-size: 9px;
+  color: #8A2BE2;
+  text-transform: uppercase;
+  margin-right: 4px;
+}
+
+.report__wt-half {
+  font-size: 8px;
+  color: #FF0055;
+  background: rgba(255, 0, 85, 0.15);
+  padding: 1px 4px;
+  border-radius: 2px;
+}
+
+// Export template (clean dark background for html2canvas)
+.report__export-template {
+  font-family: JetBrains Mono, monospace;
+  color: #ccc;
+  background: #0A0B0E;
+  width: 800px;
+}

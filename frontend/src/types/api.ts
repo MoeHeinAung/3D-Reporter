@@ -126,6 +126,54 @@ export interface OffloadResult {
   count: number
 }
 
+export interface WinningTicketDetail {
+  ticket: string
+  type: 'Jackpot' | 'Minor'
+  amount: number
+  payout: number
+  isHalfBlacklisted: boolean
+}
+
+export interface AgentReportLine {
+  agentId: string
+  agentName: string
+  totalSaleAmount: number
+  commissionPaid: number
+  subtotal: number
+  winningTickets: WinningTicketDetail[]
+  total: number
+}
+
+export interface DealerReportLine {
+  dealerId: string
+  dealerName: string
+  totalOffloadedAmount: number
+  commissionToAdmin: number
+  subtotal: number
+  winningTickets: WinningTicketDetail[]
+  total: number
+}
+
+export interface AdminReportSection {
+  totalSalesAmount: number
+  totalCommissionPayable: number
+  subtotalSales: number
+  totalOffloadedAmount: number
+  totalCommissionFromMd: number
+  subtotalOffloads: number
+  winningTickets: WinningTicketDetail[]
+  grandTotal: number
+}
+
+export interface ReportData {
+  drawId: number
+  drawStatus: string
+  hasWinningTickets: boolean
+  agents: AgentReportLine[]
+  dealers: DealerReportLine[]
+  admin: AdminReportSection
+}
+
 /** Type guard: true if the result is an ApiError. */
 export function isApiError(result: unknown): result is ApiError {
   return typeof result === 'object' && result !== null && 'error' in result
