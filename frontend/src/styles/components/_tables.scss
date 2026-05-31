@@ -1,0 +1,137 @@
+// ============================================================================
+// SHARED TABLE STYLES — "Nexus Terminal"
+// Reusable table patterns across all pages.
+// ============================================================================
+
+@use '../abstracts/mixins' as *;
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+
+  thead {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background:
+      linear-gradient(180deg, rgba(0, 200, 224, 0.04) 0%, transparent 100%),
+      var(--color-bg-elevated);
+    backdrop-filter: blur(8px);
+
+    tr {
+      border-bottom: 2px solid var(--color-primary);
+    }
+  }
+
+  th {
+    @include hud-text(var(--text-sm));
+    padding: var(--space-2) var(--space-4);
+    text-align: left;
+    color: var(--color-text-secondary);
+  }
+
+  td {
+    padding: var(--space-2) var(--space-4);
+    font-size: var(--text-sm);
+    border-bottom: 1px solid var(--color-glass-border);
+    vertical-align: middle;
+  }
+
+  tbody tr {
+    transition:
+      background var(--duration-fast) var(--ease-out-expo),
+      border-color var(--duration-fast) var(--ease-out-expo);
+    border-left: 2px solid transparent;
+
+    &:nth-child(even) {
+      background: var(--color-table-stripe);
+    }
+
+    &:hover {
+      background: var(--color-table-hover);
+      border-left-color: var(--color-primary);
+    }
+  }
+}
+
+// ---- Cell Variants ----
+
+.table__cell--numeric {
+  text-align: right;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.table__cell--mono {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+}
+
+.table__cell--accent {
+  color: var(--color-primary);
+}
+
+// ---- Empty State ----
+
+.table__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  padding: var(--space-12) var(--space-5);
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+  text-align: center;
+
+  &-icon {
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    border: 2px solid var(--color-text-muted);
+    border-radius: 50%;
+    font-family: var(--font-heading);
+    font-size: var(--text-md);
+    opacity: 0.5;
+  }
+}
+
+// ---- Sort Indicators ----
+
+.table__sortable {
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+
+  &:hover {
+    color: var(--color-primary);
+  }
+}
+
+.table__sort-arrow {
+  display: inline-block;
+  width: 0;
+  height: 0;
+  margin-left: 4px;
+  vertical-align: middle;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+
+  &--asc {
+    border-bottom: 5px solid var(--color-primary);
+    border-top: none;
+  }
+
+  &--desc {
+    border-top: 5px solid var(--color-primary);
+    border-bottom: none;
+  }
+
+  &--idle {
+    border-bottom: 5px solid var(--color-text-muted);
+    border-top: none;
+    opacity: 0;
+    .table__sortable:hover & { opacity: 0.4; }
+  }
+}

@@ -44,7 +44,21 @@
     padding-bottom: var(--space-3);
     margin-bottom: var(--space-3);
     border-bottom: 1px solid transparent;
-    border-image: linear-gradient(90deg, var(--color-primary) 0%, transparent 80%) 1;
+    border-image: linear-gradient(90deg, var(--color-primary) 0%, transparent 60%) 1;
+  }
+
+  // Card header with inline status dot
+  &__header--with-status {
+    .card__status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      margin-right: var(--space-2);
+
+      &--ok    { background: var(--color-success); box-shadow: 0 0 4px var(--color-success); }
+      &--warn  { background: var(--color-warning); box-shadow: 0 0 4px var(--color-warning); }
+      &--error { background: var(--color-error); box-shadow: 0 0 4px var(--color-error); }
+    }
   }
 
   // Card body — scrollable content area
@@ -56,6 +70,15 @@
     @include scroll-container;
   }
 
+  // Section grouping within card body
+  &__section {
+    padding: var(--space-3) 0;
+
+    & + & {
+      border-top: 1px solid var(--color-glass-border);
+    }
+  }
+
   // Card footer
   &__footer {
     position: relative;
@@ -63,7 +86,8 @@
     flex-shrink: 0;
     padding-top: var(--space-3);
     margin-top: var(--space-3);
-    border-top: 1px solid var(--color-border);
+    border-top: 1px solid transparent;
+    border-image: linear-gradient(90deg, transparent 0%, var(--color-primary) 40%, transparent 100%) 1;
   }
 }
 
@@ -108,7 +132,7 @@
 
 // Compact card — less padding for dense telemetry
 .card--compact {
-  padding: var(--space-3);
+  padding: var(--space-4);
 
   .card__header {
     padding-bottom: var(--space-2);
