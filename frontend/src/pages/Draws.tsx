@@ -317,7 +317,10 @@ export default function Draws() {
               {/* ---- Column A: List View ---- */}
               <div className="draws__list">
                 {draws.length === 0 ? (
-                  <div className="draws__state">No draws found.</div>
+                  <div className="table__empty">
+                    <div className="table__empty-icon">&mdash;</div>
+                    <span>No draws found</span>
+                  </div>
                 ) : (
                   draws.map((draw) => (
                     <div
@@ -450,46 +453,46 @@ export default function Draws() {
               {ticketsError}
             </div>
           ) : (
-            <div className="draws__ticket-table-wrapper">
-              <table className="draws__ticket-table">
-                <thead>
-                  <tr>
-                    <th style={{ width: 60 }}>ID</th>
-                    <th>Ticket</th>
-                    <th>Type</th>
-                    <th style={{ width: 80 }} />
-                  </tr>
-                </thead>
-                <tbody>
-                  {(ticketTab === 'blacklist' ? blacklistTickets : winningTickets).map((t) => (
-                    <tr key={t.id}>
-                      <td className="text-muted">#{t.id}</td>
-                      <td className="telemetry">{t.ticket}</td>
-                      <td>
-                        <span className="draws__badge draws__badge--ticket">{t.type}</span>
-                      </td>
-                      <td>
-                        <button
-                          className="icon-btn icon-btn--danger"
-                          type="button"
-                          title={`Delete ${ticketTab === 'blacklist' ? 'blacklist' : 'winning'} ticket`}
-                          onClick={() => handleDeleteTicket(t.id)}
-                        >
-                          <DeleteIcon />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                  {(ticketTab === 'blacklist' ? blacklistTickets : winningTickets).length === 0 && (
+            {(ticketTab === 'blacklist' ? blacklistTickets : winningTickets).length === 0 ? (
+              <div className="table__empty">
+                <div className="table__empty-icon">&mdash;</div>
+                <span>No {ticketTab === 'blacklist' ? 'blacklist' : 'winning'} tickets found</span>
+              </div>
+            ) : (
+              <div className="draws__ticket-table-wrapper">
+                <table className="draws__ticket-table">
+                  <thead>
                     <tr>
-                      <td colSpan={4} className="draws__state" style={{ padding: 'var(--space-5)' }}>
-                        No {ticketTab === 'blacklist' ? 'blacklist' : 'winning'} tickets for this draw.
-                      </td>
+                      <th style={{ width: 60 }}>ID</th>
+                      <th>Ticket</th>
+                      <th>Type</th>
+                      <th style={{ width: 80 }} />
                     </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {(ticketTab === 'blacklist' ? blacklistTickets : winningTickets).map((t) => (
+                      <tr key={t.id}>
+                        <td className="text-muted">#{t.id}</td>
+                        <td className="table__cell--mono">{t.ticket}</td>
+                        <td>
+                          <span className="draws__badge draws__badge--ticket">{t.type}</span>
+                        </td>
+                        <td>
+                          <button
+                            className="icon-btn icon-btn--danger"
+                            type="button"
+                            title={`Delete ${ticketTab === 'blacklist' ? 'blacklist' : 'winning'} ticket`}
+                            onClick={() => handleDeleteTicket(t.id)}
+                          >
+                            <DeleteIcon />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           )}
         </div>
       </div>

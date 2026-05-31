@@ -161,7 +161,11 @@ function ChevronIcon({ open }: { open: boolean }) {
       stroke="currentColor"
       strokeWidth="2"
       strokeLinecap="round"
-      style={{ transform: open ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 150ms' }}
+      style={{
+        display: 'inline-flex',
+        transition: 'transform 200ms cubic-bezier(0.16, 1, 0.3, 1)',
+        transform: open ? 'rotate(90deg)' : 'rotate(0deg)',
+      }}
     >
       <path d="M6 4l4 4-4 4" />
     </svg>
@@ -750,7 +754,7 @@ export default function Sales() {
               </dl>
 
               <div className="sales__confirm-table-wrapper">
-                <table className="draws__ticket-table">
+                <table className="draws__ticket-table table">
                   <thead>
                     <tr>
                       <th style={{ width: 40 }}>#</th>
@@ -762,8 +766,8 @@ export default function Sales() {
                     {allEntries.map((entry, i) => (
                       <tr key={i}>
                         <td className="text-muted">{i + 1}</td>
-                        <td className="telemetry">{entry.ticket}</td>
-                        <td className="telemetry">{entry.amount.toLocaleString()}</td>
+                        <td className="table__cell--mono">{entry.ticket}</td>
+                        <td className="table__cell--numeric">{entry.amount.toLocaleString()}</td>
                       </tr>
                     ))}
                   </tbody>

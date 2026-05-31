@@ -373,15 +373,15 @@ export default function Report() {
                           <tbody>
                             <tr>
                               <td>Total Sale Amount</td>
-                              <td className="report__num">{a.totalSaleAmount.toLocaleString()}</td>
+                              <td className="report__num table__cell--numeric">{a.totalSaleAmount.toLocaleString()}</td>
                             </tr>
                             <tr>
                               <td>Commission Paid ({a.commissionPaid > 0 && a.totalSaleAmount > 0 ? Math.round(a.commissionPaid / a.totalSaleAmount * 100) : 0}%)</td>
-                              <td className="report__num">{a.commissionPaid.toLocaleString()}</td>
+                              <td className="report__num table__cell--numeric">{a.commissionPaid.toLocaleString()}</td>
                             </tr>
                             <tr className="report__subtotal-row">
                               <td>Subtotal</td>
-                              <td className="report__num">{a.subtotal.toLocaleString()}</td>
+                              <td className="report__num table__cell--numeric">{a.subtotal.toLocaleString()}</td>
                             </tr>
                             {report.hasWinningTickets && a.winningTickets.length > 0 && (
                               <>
@@ -393,7 +393,7 @@ export default function Report() {
                                       <span className="report__wt-type">{wt.type}</span>
                                       {wt.isHalfBlacklisted && <span className="report__wt-half">HALF</span>}
                                     </td>
-                                    <td className="report__num">
+                                    <td className="report__num table__cell--numeric">
                                       Amt: {wt.amount.toLocaleString()} / Pay: {wt.payout.toLocaleString()}
                                     </td>
                                   </tr>
@@ -402,7 +402,7 @@ export default function Report() {
                             )}
                             <tr className="report__total-row">
                               <td>Total</td>
-                              <td className="report__num">{a.total.toLocaleString()}</td>
+                              <td className="report__num table__cell--numeric">{a.total.toLocaleString()}</td>
                             </tr>
                           </tbody>
                         </table>
@@ -410,6 +410,8 @@ export default function Report() {
                     ))
                   )}
                 </div>
+
+                <hr className="report__section-divider" />
 
                 {/* Master Dealer Section */}
                 <div className="report__section" style={{ marginBottom: '20px' }}>
@@ -427,15 +429,15 @@ export default function Report() {
                           <tbody>
                             <tr>
                               <td>Total Offloaded Amount</td>
-                              <td className="report__num">{d.totalOffloadedAmount.toLocaleString()}</td>
+                              <td className="report__num table__cell--numeric">{d.totalOffloadedAmount.toLocaleString()}</td>
                             </tr>
                             <tr>
                               <td>Commission Paid to Admin/House</td>
-                              <td className="report__num">{d.commissionToAdmin.toLocaleString()}</td>
+                              <td className="report__num table__cell--numeric">{d.commissionToAdmin.toLocaleString()}</td>
                             </tr>
                             <tr className="report__subtotal-row">
                               <td>Subtotal</td>
-                              <td className="report__num">{d.subtotal.toLocaleString()}</td>
+                              <td className="report__num table__cell--numeric">{d.subtotal.toLocaleString()}</td>
                             </tr>
                             {report.hasWinningTickets && d.winningTickets.length > 0 && (
                               <>
@@ -447,7 +449,7 @@ export default function Report() {
                                       <span className="report__wt-type">{wt.type}</span>
                                       {wt.isHalfBlacklisted && <span className="report__wt-half">HALF</span>}
                                     </td>
-                                    <td className="report__num">
+                                    <td className="report__num table__cell--numeric">
                                       Amt: {wt.amount.toLocaleString()} / Pay: {wt.payout.toLocaleString()}
                                     </td>
                                   </tr>
@@ -456,7 +458,7 @@ export default function Report() {
                             )}
                             <tr className="report__total-row">
                               <td>Total</td>
-                              <td className="report__num">{d.total.toLocaleString()}</td>
+                              <td className="report__num table__cell--numeric">{d.total.toLocaleString()}</td>
                             </tr>
                           </tbody>
                         </table>
@@ -465,6 +467,8 @@ export default function Report() {
                   )}
                 </div>
 
+                <hr className="report__section-divider" />
+
                 {/* Admin/House Section */}
                 <div className="report__section report__section--admin">
                   <h3 className="report__section-title">ADMIN / HOUSE — CONSOLIDATED</h3>
@@ -472,30 +476,30 @@ export default function Report() {
                     <tbody>
                       <tr>
                         <td>Total Sales Amount (All Agents)</td>
-                        <td className="report__num">{report.admin.totalSalesAmount.toLocaleString()}</td>
+                        <td className="report__num table__cell--numeric">{report.admin.totalSalesAmount.toLocaleString()}</td>
                       </tr>
                       <tr>
                         <td>Total Commission Payable (All Agents)</td>
-                        <td className="report__num">{report.admin.totalCommissionPayable.toLocaleString()}</td>
+                        <td className="report__num table__cell--numeric">{report.admin.totalCommissionPayable.toLocaleString()}</td>
                       </tr>
                       <tr className="report__subtotal-row">
                         <td>Subtotal</td>
-                        <td className="report__num">{report.admin.subtotalSales.toLocaleString()}</td>
+                        <td className="report__num table__cell--numeric">{report.admin.subtotalSales.toLocaleString()}</td>
                       </tr>
                       <tr>
                         <td colSpan={2} style={{ height: '8px' }} />
                       </tr>
                       <tr>
                         <td>Total Offloaded Amount (All Master Dealers)</td>
-                        <td className="report__num">{report.admin.totalOffloadedAmount.toLocaleString()}</td>
+                        <td className="report__num table__cell--numeric">{report.admin.totalOffloadedAmount.toLocaleString()}</td>
                       </tr>
                       <tr>
                         <td>Commission from Master Dealers</td>
-                        <td className="report__num">{report.admin.totalCommissionFromMd.toLocaleString()}</td>
+                        <td className="report__num table__cell--numeric">{report.admin.totalCommissionFromMd.toLocaleString()}</td>
                       </tr>
                       <tr className="report__subtotal-row">
                         <td>Subtotal</td>
-                        <td className="report__num">{report.admin.subtotalOffloads.toLocaleString()}</td>
+                        <td className="report__num table__cell--numeric">{report.admin.subtotalOffloads.toLocaleString()}</td>
                       </tr>
                       {report.hasWinningTickets && report.admin.winningTickets.length > 0 && (
                         <>
@@ -508,7 +512,7 @@ export default function Report() {
                                 <span className="report__wt-type">{wt.type}</span>
                                 {wt.isHalfBlacklisted && <span className="report__wt-half">HALF</span>}
                               </td>
-                              <td className="report__num">
+                              <td className="report__num table__cell--numeric">
                                 Held: {wt.amount.toLocaleString()} / Payout: {wt.payout.toLocaleString()}
                               </td>
                             </tr>
@@ -520,7 +524,7 @@ export default function Report() {
                       </tr>
                       <tr className="report__grand-total-row">
                         <td>GRAND TOTAL</td>
-                        <td className="report__num">{report.admin.grandTotal.toLocaleString()}</td>
+                        <td className="report__num table__cell--numeric">{report.admin.grandTotal.toLocaleString()}</td>
                       </tr>
                     </tbody>
                   </table>

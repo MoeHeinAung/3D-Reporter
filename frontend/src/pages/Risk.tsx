@@ -289,7 +289,7 @@ export default function Risk() {
     >
       {label}
       {count !== undefined && count > 0 && (
-        <span style={{ marginLeft: 6, opacity: 0.7, fontSize: 'var(--text-xs)' }}>({count})</span>
+        <span style={{ marginLeft: 6, opacity: 0.7, fontSize: 'var(--text-xs)', fontFamily: 'var(--font-mono)' }}>({count})</span>
       )}
     </button>
   )
@@ -330,11 +330,11 @@ export default function Risk() {
           />
         </td>
       )}
-      <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>{t.ticket}</td>
-      <td style={{ fontFamily: 'var(--font-mono)', textAlign: 'right' }}>{t.totalSales.toLocaleString()}</td>
-      <td style={{ fontFamily: 'var(--font-mono)', textAlign: 'right' }}>{t.holding.toLocaleString()}</td>
-      <td style={{ fontFamily: 'var(--font-mono)', textAlign: 'right' }}>{t.offloaded.toLocaleString()}</td>
-      <td style={{ fontFamily: 'var(--font-mono)', textAlign: 'right', fontWeight: t.pending > 0 ? 600 : 400, color: t.pending > 0 ? 'var(--color-warning, #f0a020)' : undefined }}>
+      <td className="table__cell--mono" style={{ fontWeight: 600 }}>{t.ticket}</td>
+      <td className="table__cell--numeric">{t.totalSales.toLocaleString()}</td>
+      <td className="table__cell--numeric">{t.holding.toLocaleString()}</td>
+      <td className="table__cell--numeric">{t.offloaded.toLocaleString()}</td>
+      <td className="table__cell--numeric" style={{ fontWeight: t.pending > 0 ? 600 : 400, color: t.pending > 0 ? 'var(--color-warning, #f0a020)' : undefined }}>
         {t.pending.toLocaleString()}
       </td>
       {extra?.amountInput && (
@@ -599,8 +599,8 @@ export default function Risk() {
                           {history.map((r) => (
                             <tr key={r.id}>
                               <td style={tdStyle}>{r.pageNo}</td>
-                              <td style={{ ...tdStyle, fontFamily: 'var(--font-mono)', fontWeight: 600 }}>{r.ticket}</td>
-                              <td style={{ ...tdStyle, textAlign: 'right', fontFamily: 'var(--font-mono)' }}>{r.amount.toLocaleString()}</td>
+                              <td className="table__cell--mono" style={tdStyle}>{r.ticket}</td>
+                              <td className="table__cell--numeric" style={tdStyle}>{r.amount.toLocaleString()}</td>
                               <td style={tdStyle}>{r.masterDealerId}</td>
                               <td style={{ ...tdStyle, fontSize: 'var(--text-xs)', color: 'var(--color-text-secondary)' }}>
                                 {r.createdAt ? new Date(r.createdAt).toLocaleDateString() : '-'}

@@ -262,11 +262,11 @@ export default function Partners() {
                 <tbody>
                   {data.map((item) => (
                     <tr key={item.id}>
-                      <td className="telemetry">{item.id}</td>
+                      <td className="table__cell--mono">{item.id}</td>
                       <td>{item.name}</td>
-                      <td className="telemetry">{item.commission.toLocaleString()}</td>
-                      <td className="telemetry">{item.jpFactor}</td>
-                      <td className="telemetry">{item.spFactor}</td>
+                      <td className="table__cell--numeric">{item.commission.toLocaleString()}</td>
+                      <td className="table__cell--numeric">{item.jpFactor}</td>
+                      <td className="table__cell--numeric">{item.spFactor}</td>
                       <td className="text-muted" style={{ maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {item.note || '—'}
                       </td>
