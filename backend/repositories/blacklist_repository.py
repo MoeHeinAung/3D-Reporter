@@ -12,12 +12,19 @@ class BlacklistRepository(BaseRepository[BlacklistTicket]):
     def __init__(self, session: Session) -> None:
         super().__init__(session, BlacklistTicket)
 
+    def get_by_draw(self, draw_id: int) -> list[BlacklistTicket]:
+        return list(
+            self.session.query(BlacklistTicket)
+            .filter(BlacklistTicket.draw_id == draw_id)
+            .all()
+        )
+
     def is_blocked(self, draw_id: int, ticket: str) -> bool:
         """Return True if the ticket is BLOCK-listed for the given draw."""
         return self.session.query(BlacklistTicket).filter(
             BlacklistTicket.draw_id == draw_id,
             BlacklistTicket.ticket == ticket,
-            BlacklistTicket.type == "BLOCK",
+            BlacklistTicket.restriction_type == "BLOCK",
         ).first() is not None
 
     def is_half(self, draw_id: int, ticket: str) -> bool:
@@ -25,5 +32,5 @@ class BlacklistRepository(BaseRepository[BlacklistTicket]):
         return self.session.query(BlacklistTicket).filter(
             BlacklistTicket.draw_id == draw_id,
             BlacklistTicket.ticket == ticket,
-            BlacklistTicket.type == "HALF",
+            BlacklistTicket.restriction_type == "HALF",
         ).first() is not None

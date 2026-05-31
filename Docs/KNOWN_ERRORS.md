@@ -129,3 +129,26 @@ This document serves as a strategic reference for common errors, logical issues,
 *   **Animation Namespace Collision**
     *   **Context:** Attempting to invoke a CSS `@keyframes` animation or utility class via `@include` (Sass mixin syntax), causing compilation failure.
     *   **Resolution:** Maintain a strict separation in the SCSS architecture: `@keyframes` and utility classes (`.pulse-hologram`, `.digital-ping`) belong to the CSS cascade and are consumed via `animation:` properties or class names. Reusable logic blocks (`glass-panel`, `corner-accent`) belong to mixins and are consumed via `@include`. Never cross the streams — if it's defined with `@keyframes` or `.class`, it's not a mixin.
+
+
+## 9. SQL Multi-Statement Execution (Semicolon Splitting)
+
+**Challenge:** SQLite trigger and view bodies contain semicolons, making naive string splitting unsafe.
+
+*   **Semicolon Splitting Breaks Triggers and Views**
+    *   **Context:** Using str.split(';') to separate multi-statement SQL (triggers, views) and executing each fragment with exec_driver_sql(). Trigger bodies contain their own semicolons (e.g., SELECT COALESCE(SUM(amount), 0); inside BEGIN...END), causing the split to produce incomplete statements.
+    *   **Resolution:** Use connection.connection.executescript(sql) which delegates to SQLite's native executescript() -- a multi-statement parser that understands statement boundaries including nested semicolons inside trigger bodies, view definitions, and compound SELECTs. Never split SQL by semicolon when the script contains triggers or views.
+
+## 10. Report Calculation Sign Conventions (Admin Cash Flow)
+
+**Challenge:** Correctly modeling cash flow direction in financial settlement reports.
+
+*   **Dealer Cash Flow Sign Reversal**
+    *   **Context:** The admin grand total treated dealer offloads as income (+ subtotal_offloads) and dealer prize payouts as expense (- dealer_payout_total). From admin's perspective: admin PAYS dealers the net offloaded amount (cash out = negative), and dealers PAY admin their share of prizes (cash in = positive). The signs were reversed.
+    *   **Resolution:** Use the admin cash-flow perspective consistently:
+      - subtotal_sales: agents pay admin (cash in)
+      - agent_payout_total: admin pays agents prizes (cash out)
+      - subtotal_offloads: admin pays dealers net offloaded (cash out)
+      - dealer_payout_total: dealers pay admin prizes (cash in)
+      - Per-ticket: total_sold - agent_settlement + master_recovery - total_offloaded
+    *   **Verification:** Always verify report formulas against CalculationWorkflow.md Section 10 (Example Verification). The expected values for the standard example (100K sales, 80K offloaded, 20K hold, 15pct agent/40pct master commission, JP=500) are: losing scenario = 37,000 profit; winning scenario = -9,963,000 loss.

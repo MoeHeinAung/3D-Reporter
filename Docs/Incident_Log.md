@@ -137,3 +137,19 @@ This document records every error encountered during development, organized chro
   - Updated the mock's lifecycle methods (`open_draw`, `close_draw`, `settle_draw`, `get_open_draw`) to properly read/write the shared `_mockDraws` array, so CRUD operations work within a mock session.
   - Added `IntegrityError` handling in `_with_session()` to return user-friendly messages for duplicate blacklist/winning ticket creation instead of a generic "internal error."
 - **Files:** `frontend/src/api/bridge.ts`, `frontend/src/App.tsx`, `frontend/src/styles/components/_navbar.scss`, `backend/api.py`
+
+## 2026-05-31 — Backend Rebuild from TestingDatabase
+
+### INC-019: SQL trigger installation fails with "incomplete input" error
+
+- **Symptom:** `init_db()` crashed with `sqlite3.OperationalError: incomplete input` when executing the SQL triggers. The error occurred at the `END;` of the first trigger body — SQLite received a partial statement.
+- **Root Cause:** The `_install_triggers()` method split the multi-statement trigger SQL on `;` characters. Since trigger bodies contain their own semicolons (e.g., `SELECT COALESCE(SUM(amount), 0)` is followed by `;` inside the body), the split produced fragments. The first fragment ended at the trigger body's first internal semicolon, producing an incomplete `CREATE TRIGGER` statement missing its `END`.
+- **Resolution:** Replaced `conn.exec_driver_sql(stmt)` in a `for stmt in sql.split(";")` loop with `conn.connection.executescript(sql)` which uses SQLite's native multi-statement parser. This handles semicolons inside trigger/view bodies correctly. Applied the same fix to `_install_views()` for consistency.
+- **Files:** `backend/database/connection.py`
+
+### INC-020: Report grand total off by ~9x due to reversed dealer cash flow signs
+
+- **Symptom:** Report generation produced grand total of -89,867,000 for the CalculationWorkflow.md example scenario. The expected value was -9,963,000.
+- **Root Cause:** The grand total formula treated dealer cash flows with reversed signs: `+ subtotal_offloads - dealer_payout_total`. From admin's perspective, `subtotal_offloads` is cash PAID to dealers (negative), and `dealer_payout_total` is prize cash RECEIVED from dealers (positive). The formula was backwards.
+- **Resolution:** Corrected to `- subtotal_offloads + dealer_payout_total`. Also corrected the per-ticket `admin_profit_loss` in settlement persistence from `total_sold - agent_settlement + master_recovery` to `total_sold - agent_settlement + master_recovery - total_offloaded` (must subtract the cash paid to dealers).
+- **Files:** `backend/services/report_service.py`

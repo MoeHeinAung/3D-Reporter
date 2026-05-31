@@ -1,24 +1,55 @@
-"""Risk telemetry aggregation for the Nightingale chart."""
+"""Risk telemetry aggregation using live database views."""
 
 from __future__ import annotations
 
 from datetime import datetime, timezone
 from typing import Any
 
+from sqlalchemy import text
+from sqlalchemy.orm import Session
+
 
 class RiskService:
-    """Aggregates risk telemetry data. Currently returns placeholder structure."""
+    """Aggregates risk telemetry from the database for a given draw."""
 
-    def get_telemetry(self) -> dict[str, Any]:
-        return {
-            "categories": [
-                {"label": "Network", "value": 0.0, "threshold": 0.7},
-                {"label": "Storage", "value": 0.0, "threshold": 0.8},
-                {"label": "Compute", "value": 0.0, "threshold": 0.6},
-                {"label": "Memory", "value": 0.0, "threshold": 0.75},
-                {"label": "IO", "value": 0.0, "threshold": 0.65},
-                {"label": "Security", "value": 0.0, "threshold": 0.5},
-            ],
-            "overall": 0.0,
-            "updatedAt": datetime.now(timezone.utc).isoformat(),
-        }
+    def __init__(self, session: Session) -> None:
+        self.session = session
+
+    def get_telemetry(self, draw_id: int | None = None) -> dict[str, Any]:
+        """Return risk summary from v_ticket_exposure_live."""
+        try:
+            if draw_id is not None:
+                rows = self.session.execute(
+                    text(
+                        "SELECT risk_level, COUNT(*) as cnt "
+                        "FROM v_ticket_exposure_live "
+                        "WHERE draw_id = :did "
+                        "GROUP BY risk_level"
+                    ),
+                    {"did": draw_id},
+                ).fetchall()
+            else:
+                rows = self.session.execute(
+                    text(
+                        "SELECT risk_level, COUNT(*) as cnt "
+                        "FROM v_ticket_exposure_live "
+                        "GROUP BY risk_level"
+                    )
+                ).fetchall()
+
+            risk_counts = {row[0]: row[1] for row in rows}
+            return {
+                "critical": risk_counts.get("CRITICAL", 0),
+                "high": risk_counts.get("HIGH", 0),
+                "medium": risk_counts.get("MEDIUM", 0),
+                "low": risk_counts.get("LOW", 0),
+                "updatedAt": datetime.now(timezone.utc).isoformat(),
+            }
+        except Exception:
+            return {
+                "critical": 0,
+                "high": 0,
+                "medium": 0,
+                "low": 0,
+                "updatedAt": datetime.now(timezone.utc).isoformat(),
+            }

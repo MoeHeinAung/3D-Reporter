@@ -146,4 +146,32 @@ This document captures business logic, domain rules, constraints, and core ideas
   - **Dealer Section Total:** `Subtotal - SUM(dealer_winning_ticket_payouts)`. For dealers with no winning tickets, Total = Subtotal.
   - **Draw Filter:** The report works for any draw status (OPEN, CLOSED, SETTLED). A SETTLED draw produces the "final" report; OPEN/CLOSED draws produce an interim report reflecting current sales and offloads.
   - **Export as Image:** Uses html2canvas to capture a hidden-rendered template at 2x scale with dark background (`#0A0B0E`), downloaded as `Report_Draw{N}.png`.
-- **Affects:** `backend/services/report_service.py`, `backend/api.py`, `frontend/src/pages/Report.tsx`, `frontend/src/types/api.ts`, `frontend/src/api/bridge.ts`.
+## 2026-05-31 — Backend Rebuild: Corrected Schema & Calculation Workflow
+
+- **Source:** `TestingDatabase/testingdatabase.sql` and `TestingDatabase/CalculationWorkflow.md` — the authoritative domain specification.
+- **Logic:**
+  - **Commission Rates as REAL:** Agent and Master Dealer `commission_rate` is a decimal percentage (e.g., 15.0 means 15%). Was incorrectly stored as INTEGER in the prior backend. Same for `jp_factor` and `sp_factor` (e.g., 500.0). Commission formula: `int(total_sales * commission_rate / 100.0)`. Payout formula: `int(amount * factor * half_flag)` where `half_flag = 0.5` if HALF-blacklisted else `1.0`.
+  - **Sale → Batch relationship:** Sales no longer carry direct `draw_id` or `agent_id`. These are derived from the parent Batch. A batch is UNIQUE on `(draw_id, batch_no)`. A sale is UNIQUE on `(batch_id, ticket)` — one ticket per batch. This enforces the domain rule that each ticket's sale within a batch is a single aggregate entry.
+  - **Draw structure:** Draws use `draw_name` (TEXT identifier) instead of separate `open_date`/`cutoff_time` strings. Status transitions record actual timestamps: `opened_at` when OPEN, `closed_at` when CLOSED, `settled_at` when SETTLED. The cutoff enforcement (previously string-compared) is removed — sales are gated only by draw status being OPEN.
+  - **Blacklist:** Uses `restriction_type` column (HALF or BLOCK). BLOCK tickets force `effective_admin_hold = 0` — all sales must be offloaded to master dealers. HALF tickets reduce prize payouts by 50% for all parties.
+  - **Winning Tickets:** Uses `prize_type` column (JACKPOT or MINOR). A draw+ticket combination is UNIQUE — a ticket can only win one prize type per draw.
+  - **Settlement Tables (5 new):** `draw_settlement_agent` (per-agent final balances), `draw_settlement_master` (per-dealer profit/loss), `draw_settlement_ticket` (per-ticket admin P&L), `draw_settlement_summary` (draw-level net profit). These persist the financial state at settlement time for audit and historical reporting.
+  - **Ticket Snapshot:** `draw_ticket_snapshot` captures per-ticket state (total_sold, admin_hold, total_offloaded, pending, restriction_type) at a point in time.
+  - **Views (5):** `v_agent_sales_live` (real-time agent commission using REAL rates), `v_master_exposure_live` (real-time dealer commission), `v_ticket_exposure_live` (per-ticket risk with admin_hold, pending, and CRITICAL/HIGH/MEDIUM/LOW risk levels calculated in SQL), `v_current_draw_ticket_sales`, `v_current_draw_ticket_offloads`.
+  - **Triggers (3):** Batch `total_amount` and `ticket_count` are auto-maintained by SQL triggers on sale INSERT/UPDATE/DELETE — the database is the source of truth for denormalized aggregates.
+- **Affects:** All backend layers — `database/models.py`, `database/views.sql`, `database/connection.py`, all repositories, all services, `api.py`.
+
+## 2026-05-31 — Corrected Report Calculation (Admin Cash Flow)
+
+- **Source:** Verification against `CalculationWorkflow.md` example (Section 10: Example Verification).
+- **Logic:**
+  - **Admin cash-flow perspective (correct):**
+    - `+ subtotal_sales` — cash FROM agents (total sales minus agent commission)
+    - `- agent_payout_total` — prize cash TO agents
+    - `- subtotal_offloads` — cash TO master dealers (gross offloaded minus master commission)
+    - `+ dealer_payout_total` — prize cash FROM master dealers
+  - **Grand total** = `subtotal_sales - agent_payout_total - subtotal_offloads + dealer_payout_total`
+  - **Per-ticket admin P&L** = `total_sold - agent_settlement + master_recovery - total_offloaded`
+  - **Verified:** Example from CalculationWorkflow.md — House_Holding_Amount=20,000, Agent commission=15%, Master commission=40%, JP_Factor=500, Ticket 123 sold 100,000 with 80,000 offloaded. Jackpot scenario: grand total = **-9,963,000** (exact match).
+  - **Prior bug:** The old formula used `+ subtotal_offloads - dealer_payout_total` which flipped the sign on dealer cash flows, treating offloaded amounts as admin income and dealer payouts as admin expense (backwards). This produced -89,867,000 for the same scenario — off by a factor of ~9x.
+- **Affects:** `backend/services/report_service.py`.

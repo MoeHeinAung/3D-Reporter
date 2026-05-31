@@ -36,12 +36,7 @@ logger = logging.getLogger(__name__)
 
 
 class API:
-    """
-    Backend API exposed to the frontend via pywebview's JS bridge.
-
-    Public methods are callable as `window.pywebview.api.<method>()` from
-    JavaScript. Private methods (prefixed with _) are hidden from the bridge.
-    """
+    """Backend API exposed to the frontend via pywebview's JS bridge."""
 
     def __init__(self) -> None:
         self._start_time = time.time()
@@ -68,24 +63,22 @@ class API:
         return self._with_session(lambda s: ThemeService(s).get_theme(), default="dark")
 
     def set_theme_preference(self, theme: str) -> bool:
-        return self._with_session(
-            lambda s: ThemeService(s).set_theme(theme),
-        )
+        return self._with_session(lambda s: ThemeService(s).set_theme(theme))
 
     # ------------------------------------------------------------------
-    # Risk / Telemetry (placeholder)
+    # Risk Telemetry
     # ------------------------------------------------------------------
 
-    def get_risk_telemetry(self) -> dict[str, Any]:
-        return RiskService().get_telemetry()
+    def get_risk_telemetry(self, draw_id: int | None = None) -> dict[str, Any]:
+        return self._with_session(lambda s: RiskService(s).get_telemetry(draw_id))
 
     # ------------------------------------------------------------------
     # Draw Lifecycle
     # ------------------------------------------------------------------
 
-    def open_draw(self, open_date: str, cutoff_time: str, house_holding_amount: int = 0, note: str | None = None) -> dict[str, Any]:
+    def open_draw(self, draw_name: str, house_holding_amount: int = 0, notes: str | None = None) -> dict[str, Any]:
         def _do(s: Any) -> dict[str, Any]:
-            draw = DrawService(s).open_draw(open_date, cutoff_time, house_holding_amount, note)
+            draw = DrawService(s).open_draw(draw_name, house_holding_amount, notes)
             return {"id": draw.id, "status": draw.status}
         return self._with_session(_do)
 
@@ -108,11 +101,13 @@ class API:
                 return None
             return {
                 "id": draw.id,
-                "openDate": draw.open_date,
-                "cutoffTime": draw.cutoff_time,
+                "drawName": draw.draw_name,
                 "status": draw.status,
                 "houseHoldingAmount": draw.house_holding_amount,
-                "note": draw.note,
+                "openedAt": draw.opened_at.isoformat() if draw.opened_at else None,
+                "closedAt": draw.closed_at.isoformat() if draw.closed_at else None,
+                "settledAt": draw.settled_at.isoformat() if draw.settled_at else None,
+                "notes": draw.notes,
             }
         return self._with_session(_do)
 
@@ -126,11 +121,13 @@ class API:
             return [
                 {
                     "id": d.id,
-                    "openDate": d.open_date,
-                    "cutoffTime": d.cutoff_time,
+                    "drawName": d.draw_name,
                     "status": d.status,
                     "houseHoldingAmount": d.house_holding_amount,
-                    "note": d.note,
+                    "openedAt": d.opened_at.isoformat() if d.opened_at else None,
+                    "closedAt": d.closed_at.isoformat() if d.closed_at else None,
+                    "settledAt": d.settled_at.isoformat() if d.settled_at else None,
+                    "notes": d.notes,
                 }
                 for d in draws
             ]
@@ -143,17 +140,27 @@ class API:
                 return {"error": f"Draw {draw_id} not found."}
             return {
                 "id": draw.id,
-                "openDate": draw.open_date,
-                "cutoffTime": draw.cutoff_time,
+                "drawName": draw.draw_name,
                 "status": draw.status,
                 "houseHoldingAmount": draw.house_holding_amount,
-                "note": draw.note,
+                "openedAt": draw.opened_at.isoformat() if draw.opened_at else None,
+                "closedAt": draw.closed_at.isoformat() if draw.closed_at else None,
+                "settledAt": draw.settled_at.isoformat() if draw.settled_at else None,
+                "notes": draw.notes,
             }
         return self._with_session(_do)
 
-    def update_draw(self, draw_id: int, open_date: str | None = None, cutoff_time: str | None = None, house_holding_amount: int | None = None, note: str | None = None) -> dict[str, Any]:
+    def update_draw(
+        self, draw_id: int,
+        draw_name: str | None = None,
+        house_holding_amount: int | None = None,
+        notes: str | None = None,
+    ) -> dict[str, Any]:
         def _do(s: Any) -> dict[str, Any]:
-            draw = DrawService(s).update_draw(draw_id, open_date, cutoff_time, house_holding_amount, note)
+            draw = DrawService(s).update_draw(
+                draw_id, draw_name=draw_name,
+                house_holding_amount=house_holding_amount, notes=notes,
+            )
             return {"id": draw.id, "status": draw.status}
         return self._with_session(_do)
 
@@ -171,15 +178,15 @@ class API:
         def _do(s: Any) -> list[dict[str, Any]]:
             tickets = BlacklistService(s).get_by_draw(draw_id)
             return [
-                {"id": t.id, "drawId": t.draw_id, "ticket": t.ticket, "type": t.type}
+                {"id": t.id, "drawId": t.draw_id, "ticket": t.ticket, "restrictionType": t.restriction_type}
                 for t in tickets
             ]
         return self._with_session(_do)
 
-    def create_blacklist_ticket(self, draw_id: int, ticket: str, ticket_type: str) -> dict[str, Any]:
+    def create_blacklist_ticket(self, draw_id: int, ticket: str, restriction_type: str) -> dict[str, Any]:
         def _do(s: Any) -> dict[str, Any]:
-            t = BlacklistService(s).create(draw_id, ticket, ticket_type)
-            return {"id": t.id, "ticket": t.ticket, "type": t.type}
+            t = BlacklistService(s).create(draw_id, ticket, restriction_type)
+            return {"id": t.id, "ticket": t.ticket, "restrictionType": t.restriction_type}
         return self._with_session(_do)
 
     def delete_blacklist_ticket(self, ticket_id: int) -> dict[str, Any]:
@@ -196,15 +203,15 @@ class API:
         def _do(s: Any) -> list[dict[str, Any]]:
             tickets = WinningService(s).get_by_draw(draw_id)
             return [
-                {"id": t.id, "drawId": t.draw_id, "ticket": t.ticket, "type": t.type}
+                {"id": t.id, "drawId": t.draw_id, "ticket": t.ticket, "prizeType": t.prize_type}
                 for t in tickets
             ]
         return self._with_session(_do)
 
-    def create_winning_ticket(self, draw_id: int, ticket: str, ticket_type: str) -> dict[str, Any]:
+    def create_winning_ticket(self, draw_id: int, ticket: str, prize_type: str) -> dict[str, Any]:
         def _do(s: Any) -> dict[str, Any]:
-            t = WinningService(s).create(draw_id, ticket, ticket_type)
-            return {"id": t.id, "ticket": t.ticket, "type": t.type}
+            t = WinningService(s).create(draw_id, ticket, prize_type)
+            return {"id": t.id, "ticket": t.ticket, "prizeType": t.prize_type}
         return self._with_session(_do)
 
     def delete_winning_ticket(self, ticket_id: int) -> dict[str, Any]:
@@ -223,22 +230,37 @@ class API:
             return [
                 {
                     "id": a.id, "name": a.name,
-                    "commission": a.commission, "jpFactor": a.jp_factor,
-                    "spFactor": a.sp_factor, "note": a.note,
+                    "commissionRate": a.commission_rate,
+                    "jpFactor": a.jp_factor, "spFactor": a.sp_factor,
+                    "active": bool(a.active),
                 }
                 for a in agents
             ]
         return self._with_session(_do)
 
-    def create_agent(self, id: str, name: str, commission: int = 0, jp_factor: int = 0, sp_factor: int = 0, note: str | None = None) -> dict[str, Any]:
+    def create_agent(
+        self, id: str, name: str,
+        commission_rate: float = 0.0, jp_factor: float = 0.0, sp_factor: float = 0.0,
+    ) -> dict[str, Any]:
         def _do(s: Any) -> dict[str, Any]:
-            a = AgentService(s).create(id, name, commission, jp_factor, sp_factor, note)
+            a = AgentService(s).create(id, name, commission_rate, jp_factor, sp_factor)
             return {"id": a.id, "name": a.name}
         return self._with_session(_do)
 
-    def update_agent(self, agent_id: str, name: str | None = None, commission: int | None = None, jp_factor: int | None = None, sp_factor: int | None = None, note: str | None = None) -> dict[str, Any]:
+    def update_agent(
+        self, agent_id: str,
+        name: str | None = None,
+        commission_rate: float | None = None,
+        jp_factor: float | None = None,
+        sp_factor: float | None = None,
+        active: bool | None = None,
+    ) -> dict[str, Any]:
         def _do(s: Any) -> dict[str, Any]:
-            a = AgentService(s).update(agent_id, name, commission, jp_factor, sp_factor, note)
+            a = AgentService(s).update(
+                agent_id, name=name, commission_rate=commission_rate,
+                jp_factor=jp_factor, sp_factor=sp_factor,
+                active=1 if active else 0 if active is not None else None,
+            )
             return {"id": a.id, "name": a.name}
         return self._with_session(_do)
 
@@ -258,22 +280,37 @@ class API:
             return [
                 {
                     "id": d.id, "name": d.name,
-                    "commission": d.commission, "jpFactor": d.jp_factor,
-                    "spFactor": d.sp_factor, "note": d.note,
+                    "commissionRate": d.commission_rate,
+                    "jpFactor": d.jp_factor, "spFactor": d.sp_factor,
+                    "active": bool(d.active),
                 }
                 for d in dealers
             ]
         return self._with_session(_do)
 
-    def create_master_dealer(self, id: str, name: str, commission: int = 0, jp_factor: int = 0, sp_factor: int = 0, note: str | None = None) -> dict[str, Any]:
+    def create_master_dealer(
+        self, id: str, name: str,
+        commission_rate: float = 0.0, jp_factor: float = 0.0, sp_factor: float = 0.0,
+    ) -> dict[str, Any]:
         def _do(s: Any) -> dict[str, Any]:
-            d = MasterDealerService(s).create(id, name, commission, jp_factor, sp_factor, note)
+            d = MasterDealerService(s).create(id, name, commission_rate, jp_factor, sp_factor)
             return {"id": d.id, "name": d.name}
         return self._with_session(_do)
 
-    def update_master_dealer(self, dealer_id: str, name: str | None = None, commission: int | None = None, jp_factor: int | None = None, sp_factor: int | None = None, note: str | None = None) -> dict[str, Any]:
+    def update_master_dealer(
+        self, dealer_id: str,
+        name: str | None = None,
+        commission_rate: float | None = None,
+        jp_factor: float | None = None,
+        sp_factor: float | None = None,
+        active: bool | None = None,
+    ) -> dict[str, Any]:
         def _do(s: Any) -> dict[str, Any]:
-            d = MasterDealerService(s).update(dealer_id, name, commission, jp_factor, sp_factor, note)
+            d = MasterDealerService(s).update(
+                dealer_id, name=name, commission_rate=commission_rate,
+                jp_factor=jp_factor, sp_factor=sp_factor,
+                active=1 if active else 0 if active is not None else None,
+            )
             return {"id": d.id, "name": d.name}
         return self._with_session(_do)
 
@@ -288,10 +325,10 @@ class API:
     # ------------------------------------------------------------------
 
     def record_sale(
-        self, draw_id: int, agent_id: str, batch_id: int, ticket: str, amount: int, note: str | None = None
+        self, batch_id: int, ticket: str, amount: int,
     ) -> dict[str, Any]:
         def _do(s: Any) -> dict[str, Any]:
-            sale = SalesService(s).record_sale(draw_id, agent_id, batch_id, ticket, amount, note)
+            sale = SalesService(s).record_sale(batch_id, ticket, amount)
             return {"id": sale.id, "ticket": sale.ticket, "amount": sale.amount}
         return self._with_session(_do)
 
@@ -301,12 +338,11 @@ class API:
             return [
                 {
                     "id": sale.id,
-                    "drawId": sale.draw_id,
-                    "agentId": sale.agent_id,
+                    "drawId": sale.batch.draw_id,
+                    "agentId": sale.batch.agent_id,
                     "batchId": sale.batch_id,
                     "ticket": sale.ticket,
                     "amount": sale.amount,
-                    "note": sale.note,
                 }
                 for sale in sales
             ]
@@ -315,7 +351,12 @@ class API:
     def get_or_create_batch(self, draw_id: int, agent_id: str) -> dict[str, Any]:
         def _do(s: Any) -> dict[str, Any]:
             batch = SalesService(s).get_or_create_batch(draw_id, agent_id)
-            return {"id": batch.id, "drawId": batch.draw_id, "agentId": batch.agent_id}
+            return {
+                "id": batch.id,
+                "drawId": batch.draw_id,
+                "agentId": batch.agent_id,
+                "batchNo": batch.batch_no,
+            }
         return self._with_session(_do)
 
     # ------------------------------------------------------------------
@@ -336,6 +377,7 @@ class API:
                     "offloaded": t.offloaded,
                     "pending": t.pending,
                     "isBlocked": t.is_blocked,
+                    "riskLevel": t.risk_level,
                 }
             return {
                 "holding": [_ticket_risk(t) for t in breakdown.holding],
@@ -346,14 +388,14 @@ class API:
 
     def create_offload(
         self, draw_id: int, master_dealer_id: str, entries_json: str,
-        page_no: int, note: str | None = None
+        page_no: str | None = None, notes: str | None = None,
     ) -> dict[str, Any]:
         def _do(s: Any) -> dict[str, Any]:
             config = self._read_offload_config(s)
             entries = json.loads(entries_json)
             records = OffloadService(s).create_offload(
-                draw_id, master_dealer_id, entries, page_no,
-                admin_hold=config["admin_hold"], note=note,
+                draw_id, master_dealer_id, entries,
+                page_no=page_no, admin_hold=config["admin_hold"], notes=notes,
             )
             return {
                 "records": [
@@ -378,8 +420,8 @@ class API:
                     "pageNo": r.page_no,
                     "ticket": r.ticket,
                     "amount": r.amount,
-                    "note": r.note,
-                    "createdAt": r.created_at,
+                    "notes": r.notes,
+                    "createdAt": r.created_at.isoformat() if r.created_at else None,
                 }
                 for r in records
             ]
@@ -392,15 +434,13 @@ class API:
 
     def update_offload_config(self, key: str, value: str) -> dict[str, Any]:
         def _do(s: Any) -> dict[str, Any]:
-            valid_keys = {"admin_hold", "max_offload_amount", "max_offload_ticket", "offload_page_number"}
+            valid_keys = {"admin_hold", "max_offload_amount", "max_offload_ticket"}
             if key not in valid_keys:
                 return {"error": f"Unknown config key {key!r}. Valid keys: {valid_keys}"}
-            # Validate integer values
-            if key in ("admin_hold", "max_offload_amount", "max_offload_ticket", "offload_page_number"):
-                try:
-                    int(value)
-                except ValueError:
-                    return {"error": f"Value for {key!r} must be an integer."}
+            try:
+                int(value)
+            except ValueError:
+                return {"error": f"Value for {key!r} must be an integer."}
             pref = s.get(Preference, key)
             if pref:
                 pref.value = value
@@ -490,7 +530,6 @@ class API:
             "admin_hold": "5000",
             "max_offload_amount": "500000",
             "max_offload_ticket": "60",
-            "offload_page_number": "1",
         }
         result: dict[str, Any] = {}
         for key, default_val in defaults.items():
@@ -502,9 +541,9 @@ class API:
         """Execute *fn* inside a transactional session.
 
         On success the session is committed and the return value is passed
-        through.  On any ``AppError`` the session is rolled back and an error
+        through.  On any AppError the session is rolled back and an error
         dict is returned.  *default* is used as the return value when the
-        caller only wants the side-effect (e.g. ``set_theme_preference``).
+        caller only wants the side-effect (e.g. set_theme_preference).
         """
         session = get_session()
         try:

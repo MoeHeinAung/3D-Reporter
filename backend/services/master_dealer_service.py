@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 from sqlalchemy.orm import Session
 
 from backend.database.models import MasterDealer
@@ -22,24 +24,47 @@ class MasterDealerService:
     def get_by_id(self, dealer_id: str) -> MasterDealer | None:
         return self._repo.get_by_id(dealer_id)
 
-    def create(self, id: str, name: str, commission: int = 0, jp_factor: int = 0, sp_factor: int = 0, note: str | None = None) -> MasterDealer:
-        return self._repo.create(id=id, name=name, commission=commission, jp_factor=jp_factor, sp_factor=sp_factor, note=note)
+    def create(
+        self,
+        id: str,
+        name: str,
+        commission_rate: float = 0.0,
+        jp_factor: float = 0.0,
+        sp_factor: float = 0.0,
+    ) -> MasterDealer:
+        return self._repo.create(
+            id=id,
+            name=name,
+            commission_rate=commission_rate,
+            jp_factor=jp_factor,
+            sp_factor=sp_factor,
+            active=1,
+            created_at=datetime.now(UTC),
+        )
 
-    def update(self, dealer_id: str, name: str | None = None, commission: int | None = None, jp_factor: int | None = None, sp_factor: int | None = None, note: str | None | object = _UNSET) -> MasterDealer:
+    def update(
+        self,
+        dealer_id: str,
+        name: str | None = None,
+        commission_rate: float | None = None,
+        jp_factor: float | None = None,
+        sp_factor: float | None = None,
+        active: int | None | object = _UNSET,
+    ) -> MasterDealer:
         dealer = self._repo.get_by_id(dealer_id)
         if dealer is None:
             raise NotFoundError(f"Master Dealer {dealer_id} not found.")
         kwargs: dict[str, object] = {}
         if name is not None:
             kwargs["name"] = name
-        if commission is not None:
-            kwargs["commission"] = commission
+        if commission_rate is not None:
+            kwargs["commission_rate"] = commission_rate
         if jp_factor is not None:
             kwargs["jp_factor"] = jp_factor
         if sp_factor is not None:
             kwargs["sp_factor"] = sp_factor
-        if note is not _UNSET:
-            kwargs["note"] = note
+        if active is not _UNSET:
+            kwargs["active"] = active
         return self._repo.update(dealer, **kwargs)
 
     def delete(self, dealer_id: str) -> None:

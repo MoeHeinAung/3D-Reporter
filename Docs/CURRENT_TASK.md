@@ -1,3 +1,39 @@
+# CURRENT TASK — Backend Rebuild from TestingDatabase (2026-05-31)
+
+**Status:** Complete — All 24 tests pass, full business flow verified
+**Source:** `TestingDatabase/testingdatabase.sql` + `TestingDatabase/CalculationWorkflow.md`
+
+## What Changed
+
+Rebuilt entire backend to match the TestingDatabase schema — the single source of truth for the lottery domain model:
+
+### Schema Changes
+- **Draw:** `draw_name` + `opened_at`/`closed_at`/`settled_at` DATETIME (replaced `open_date`/`cutoff_time` strings)
+- **Agent/MasterDealer:** `commission_rate REAL` (was `commission INTEGER`), `jp_factor REAL`, `sp_factor REAL`, `active` flag, no `note`
+- **Batch:** Added `batch_no TEXT`, `ticket_count`, `closed_at`, `remarks` (was `note`)
+- **Sale:** Only `batch_id` (draw/agent derived from batch); `UNIQUE(batch_id, ticket)` — one ticket per batch
+- **Offloaded:** `page_no TEXT` (was INTEGER), `notes` (was `note`)
+- **BlacklistTicket:** `restriction_type` (was `type`)
+- **WinningTicket:** `prize_type` with JACKPOT/MINOR (was `type` with Jackpot/Minor)
+- **NEW tables:** `draw_ticket_snapshot`, `draw_settlement_agent`, `draw_settlement_master`, `draw_settlement_ticket`, `draw_settlement_summary`
+- **NEW views:** `v_agent_sales_live`, `v_master_exposure_live`, `v_ticket_exposure_live` (with CRITICAL/HIGH/MEDIUM/LOW risk levels)
+- **NEW triggers:** Batch total_amount + ticket_count auto-maintenance on sale insert/update/delete
+
+### Report Calculation (from CalculationWorkflow.md)
+- Agent Commission = total_sales × commission_rate / 100 (REAL rate)
+- Agent Payout = amount × factor × half_flag
+- Master Commission = total_offloaded × commission_rate / 100
+- Master Payout = offloaded_amount × master_factor × half_flag
+- Grand Total = subtotal_sales - agent_payout_total - subtotal_offloads + dealer_payout_total
+- Verified against example: -9,963,000 (exact match)
+
+### Files Changed (22 files)
+`backend/database/models.py`, `backend/database/connection.py`, `backend/database/views.sql`,
+`backend/repositories/*` (9 files), `backend/services/*` (8 files),
+`backend/api.py`, `tests/test_models.py`, `tests/test_repositories/test_base.py`
+
+---
+
 # CURRENT TASK — Frontend Sci-Fi Redesign: "Nexus Terminal"
 
 **Status:** Complete — UI Professional Upgrade Applied (2026-05-31)

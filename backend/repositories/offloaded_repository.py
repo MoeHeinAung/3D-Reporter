@@ -47,26 +47,3 @@ class OffloadedRepository(BaseRepository[Offloaded]):
             .all()
         )
         return [(str(row[0]), int(row[1])) for row in rows]
-
-    def get_by_ticket_grouped_by_dealer(self, draw_id: int, ticket: str) -> list[tuple[str, int]]:
-        """Return (master_dealer_id, total_amount) for a specific ticket in a draw, grouped by dealer."""
-        from sqlalchemy import func
-
-        rows = (
-            self.session.query(Offloaded.master_dealer_id, func.sum(Offloaded.amount))
-            .filter(Offloaded.draw_id == draw_id, Offloaded.ticket == ticket)
-            .group_by(Offloaded.master_dealer_id)
-            .all()
-        )
-        return [(str(row[0]), int(row[1])) for row in rows]
-
-    def get_max_page_no(self, draw_id: int) -> int:
-        """Return the highest page_no for a draw, or 0 if no offloads exist."""
-        from sqlalchemy import func
-
-        result = (
-            self.session.query(func.coalesce(func.max(Offloaded.page_no), 0))
-            .filter(Offloaded.draw_id == draw_id)
-            .scalar()
-        )
-        return int(result)

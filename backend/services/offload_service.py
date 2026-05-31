@@ -16,24 +16,6 @@ from backend.repositories.offloaded_repository import OffloadedRepository
 from backend.repositories.sale_repository import SaleRepository
 
 
-def _is_cutoff_passed(open_date: str, cutoff_time: str) -> bool:
-    """Return True if the cutoff datetime has passed.
-
-    Handles both full ISO timestamps and bare HH:MM strings (combined with open_date).
-    """
-    try:
-        cutoff_dt = datetime.fromisoformat(cutoff_time)
-    except ValueError:
-        try:
-            hour, minute = map(int, cutoff_time.split(":"))
-            cutoff_dt = datetime.strptime(f"{open_date}T{hour:02d}:{minute:02d}:00", "%Y-%m-%dT%H:%M:%S")
-        except (ValueError, AttributeError):
-            return False
-    if cutoff_dt.tzinfo is None:
-        cutoff_dt = cutoff_dt.replace(tzinfo=UTC)
-    return datetime.now(UTC) > cutoff_dt
-
-
 class TicketRisk(NamedTuple):
     ticket: str
     total_sales: int
@@ -41,6 +23,7 @@ class TicketRisk(NamedTuple):
     offloaded: int
     pending: int
     is_blocked: bool
+    risk_level: str
 
 
 class RiskBreakdown(NamedTuple):
@@ -69,7 +52,7 @@ class OffloadService:
     ) -> RiskBreakdown:
         """Partition every ticket into Holding, Offloaded, or Pending buckets.
 
-        Per-ticket formulas (from Offload-Logic-and-Design.md):
+        Per-ticket formulas (from CalculationWorkflow.md):
           effective_hold = 0 if BLOCK-listed else admin_hold
           holding  = min(total_sales, effective_hold)
           pending  = max(total_sales - effective_hold - already_offloaded, 0)
@@ -82,7 +65,7 @@ class OffloadService:
         offload_totals = dict(self._offloaded_repo.get_ticket_totals(draw_id))
         blocked_tickets = {
             t.ticket for t in self._blacklist_repo.get_by_draw(draw_id)
-            if t.type == "BLOCK"
+            if t.restriction_type == "BLOCK"
         }
 
         all_tickets: list[TicketRisk] = []
@@ -92,6 +75,16 @@ class OffloadService:
             holding = min(total_sales, effective_hold)
             pending = max(total_sales - effective_hold - already_offloaded, 0)
 
+            # Risk level classification
+            if pending >= 100000:
+                risk_level = "CRITICAL"
+            elif pending >= 50000:
+                risk_level = "HIGH"
+            elif pending >= 10000:
+                risk_level = "MEDIUM"
+            else:
+                risk_level = "LOW"
+
             all_tickets.append(TicketRisk(
                 ticket=ticket,
                 total_sales=total_sales,
@@ -99,17 +92,14 @@ class OffloadService:
                 offloaded=already_offloaded,
                 pending=pending,
                 is_blocked=ticket in blocked_tickets,
+                risk_level=risk_level,
             ))
 
-        # Partition into buckets
         holding_list = [t for t in all_tickets if t.pending == 0 and t.offloaded == 0]
         offloaded_list = [t for t in all_tickets if t.offloaded > 0]
         pending_list = [t for t in all_tickets if t.pending > 0]
 
-        # Sort pending by descending liability (highest risk first)
         pending_list.sort(key=lambda t: t.pending, reverse=True)
-
-        # Limit to max_offload_ticket
         pending_list = pending_list[:max_offload_ticket]
 
         return RiskBreakdown(
@@ -127,34 +117,29 @@ class OffloadService:
         draw_id: int,
         master_dealer_id: str,
         entries: list[dict],
-        page_no: int,
-        admin_hold: int,
-        note: str | None = None,
+        page_no: str | None = None,
+        admin_hold: int = 0,
+        notes: str | None = None,
     ) -> list[Offloaded]:
         """Record a batch offload after validating all business rules."""
-        # Validate master dealer exists
         dealer = self._dealer_repo.get_by_id(master_dealer_id)
         if dealer is None:
             raise NotFoundError(f"Master Dealer {master_dealer_id} not found.")
 
-        # Validate draw is OPEN and cutoff not passed
         draw = self._draw_repo.get_by_id(draw_id)
         if draw is None:
             raise NotFoundError(f"Draw {draw_id} not found.")
         if draw.status != "OPEN":
             raise ConflictError("Offloads are only allowed when the draw is OPEN.")
-        if _is_cutoff_passed(draw.open_date, draw.cutoff_time):
-            raise ConflictError("Offloads are closed: cutoff time has passed.")
 
         if not entries:
             raise ValidationError("At least one offload entry is required.")
 
-        # Precompute totals once — avoid N+1 inside the loop
         sales_totals = dict(self._sale_repo.get_ticket_totals(draw_id))
         offload_totals = dict(self._offloaded_repo.get_ticket_totals(draw_id))
         blocked_tickets = {
             t.ticket for t in self._blacklist_repo.get_by_draw(draw_id)
-            if t.type == "BLOCK"
+            if t.restriction_type == "BLOCK"
         }
 
         created: list[Offloaded] = []
@@ -162,18 +147,16 @@ class OffloadService:
             ticket = str(entry["ticket"])
             amount = int(entry["amount"])
 
-            # Validate ticket format
-            if not (ticket.isdigit() and 1 <= len(ticket) <= 3):
-                raise ValidationError(f"Ticket must be 1-3 numeric digits, got {ticket!r}.")
+            if not (ticket.isdigit() and len(ticket) == 3):
+                raise ValidationError(f"Ticket must be exactly 3 numeric digits, got {ticket!r}.")
 
             if amount <= 0:
                 raise ValidationError(f"Offload amount must be positive, got {amount}.")
 
-            # Use precomputed totals (with in-memory adjustments for prior entries in this batch)
-            sales_total = sales_totals.get(ticket, 0)
-            already_offloaded = offload_totals.get(ticket, 0)
             is_blocked = ticket in blocked_tickets
             effective_hold = 0 if is_blocked else admin_hold
+            sales_total = sales_totals.get(ticket, 0)
+            already_offloaded = offload_totals.get(ticket, 0)
             pending = max(sales_total - effective_hold - already_offloaded, 0)
 
             if amount > pending:
@@ -185,14 +168,15 @@ class OffloadService:
             record = self._offloaded_repo.create(
                 draw_id=draw_id,
                 master_dealer_id=master_dealer_id,
-                page_no=page_no,
                 ticket=ticket,
                 amount=amount,
-                note=note,
+                page_no=page_no,
+                notes=notes,
+                created_at=datetime.now(UTC),
             )
             created.append(record)
 
-            # Track in-memory so subsequent entries in this batch see the accumulated offload
+            # Track in-memory for subsequent entries in this batch
             offload_totals[ticket] = already_offloaded + amount
 
         return created

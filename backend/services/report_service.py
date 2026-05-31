@@ -1,11 +1,32 @@
-"""Financial report generation with per-agent, per-dealer, and admin consolidation."""
+"""Financial report generation using the CalculationWorkflow.md formulas.
+
+Agent Payout  = amount * factor * half_flag
+Master Payout = offloaded_amount * master_factor * half_flag
+
+Agent Commission = (commission_rate / 100) * total_sales
+Master Commission = (commission_rate / 100) * total_offloaded
+
+Admin_Net_Profit =
+    Total_Sales
+    - Total_Agent_Commission
+    - Total_Admin_Payout_To_Agents
+    + sum(Master_Net_Profit_Loss[m]) over all master dealers
+"""
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import NamedTuple
 
 from sqlalchemy.orm import Session
 
+from backend.database.models import (
+    DrawSettlementAgent,
+    DrawSettlementMaster,
+    DrawSettlementSummary,
+    DrawSettlementTicket,
+    DrawTicketSnapshot,
+)
 from backend.errors import NotFoundError
 from backend.repositories.agent_repository import AgentRepository
 from backend.repositories.blacklist_repository import BlacklistRepository
@@ -91,24 +112,28 @@ class ReportService:
         winning_tickets = self._winning_repo.get_by_draw(draw_id)
         has_winners = len(winning_tickets) > 0
 
-        # Precompute all aggregates once to avoid N+1 queries
         all_sales = self._sale_repo.get_by_draw(draw_id)
         all_offloads = self._offloaded_repo.get_by_draw(draw_id)
 
+        # Aggregate sales by agent, by ticket, and by agent+ticket
         sales_by_agent: dict[str, int] = {}
         sales_by_ticket: dict[str, int] = {}
         sales_by_agent_ticket: dict[tuple[str, str], int] = {}
         for s in all_sales:
-            sales_by_agent[s.agent_id] = sales_by_agent.get(s.agent_id, 0) + s.amount
+            agent_id = s.batch.agent_id
+            sales_by_agent[agent_id] = sales_by_agent.get(agent_id, 0) + s.amount
             sales_by_ticket[s.ticket] = sales_by_ticket.get(s.ticket, 0) + s.amount
-            key = (s.agent_id, s.ticket)
+            key = (agent_id, s.ticket)
             sales_by_agent_ticket[key] = sales_by_agent_ticket.get(key, 0) + s.amount
 
+        # Aggregate offloads by dealer, by ticket, and by dealer+ticket
         offloads_by_dealer: dict[str, int] = {}
         offloads_by_ticket: dict[str, int] = {}
         offloads_by_dealer_ticket: dict[tuple[str, str], int] = {}
         for o in all_offloads:
-            offloads_by_dealer[o.master_dealer_id] = offloads_by_dealer.get(o.master_dealer_id, 0) + o.amount
+            offloads_by_dealer[o.master_dealer_id] = (
+                offloads_by_dealer.get(o.master_dealer_id, 0) + o.amount
+            )
             offloads_by_ticket[o.ticket] = offloads_by_ticket.get(o.ticket, 0) + o.amount
             key = (o.master_dealer_id, o.ticket)
             offloads_by_dealer_ticket[key] = offloads_by_dealer_ticket.get(key, 0) + o.amount
@@ -134,6 +159,140 @@ class ReportService:
         )
 
     # ------------------------------------------------------------------
+    # Settlement — persist results when a draw is settled
+    # ------------------------------------------------------------------
+
+    def settle_and_persist(self, draw_id: int) -> ReportData:
+        """Generate the report AND persist settlement records for a draw."""
+        report = self.generate_report(draw_id)
+
+        # Clear any prior settlement records for this draw
+        self._clear_settlement(draw_id)
+
+        # Persist agent settlements
+        for a in report.agents:
+            self.session.add(DrawSettlementAgent(
+                draw_id=draw_id,
+                agent_id=a.agent_id,
+                commission_rate_used=self._agent_repo.get_by_id(a.agent_id).commission_rate,
+                jp_factor_used=self._agent_repo.get_by_id(a.agent_id).jp_factor,
+                sp_factor_used=self._agent_repo.get_by_id(a.agent_id).sp_factor,
+                total_sales=a.total_sale_amount,
+                commission_amount=a.commission_paid,
+                net_collection=a.subtotal,
+                winning_settlement=sum(w.payout for w in a.winning_tickets),
+                final_balance=a.total,
+            ))
+
+        # Persist master dealer settlements
+        for d in report.dealers:
+            self.session.add(DrawSettlementMaster(
+                draw_id=draw_id,
+                master_dealer_id=d.dealer_id,
+                commission_rate_used=self._dealer_repo.get_by_id(d.dealer_id).commission_rate,
+                jp_factor_used=self._dealer_repo.get_by_id(d.dealer_id).jp_factor,
+                sp_factor_used=self._dealer_repo.get_by_id(d.dealer_id).sp_factor,
+                total_offloaded=d.total_offloaded_amount,
+                commission_amount=d.commission_to_admin,
+                net_received=d.subtotal,
+                winning_liability=sum(w.payout for w in d.winning_tickets),
+                profit_loss=d.total,
+            ))
+
+        # Persist per-ticket settlement
+        all_sales = self._sale_repo.get_by_draw(draw_id)
+        all_offloads = self._offloaded_repo.get_by_draw(draw_id)
+        sales_by_ticket: dict[str, int] = {}
+        for s in all_sales:
+            sales_by_ticket[s.ticket] = sales_by_ticket.get(s.ticket, 0) + s.amount
+        offloads_by_ticket: dict[str, int] = {}
+        for o in all_offloads:
+            offloads_by_ticket[o.ticket] = offloads_by_ticket.get(o.ticket, 0) + o.amount
+        winning_by_ticket = {w.ticket: w for w in self._winning_repo.get_by_draw(draw_id)}
+
+        all_tickets = set(sales_by_ticket.keys()) | set(offloads_by_ticket.keys())
+        for ticket in all_tickets:
+            total_sold = sales_by_ticket.get(ticket, 0)
+            total_offloaded = offloads_by_ticket.get(ticket, 0)
+            is_blocked = self._blacklist_repo.is_blocked(draw_id, ticket)
+            draw = self._draw_repo.get_by_id(draw_id)
+            effective_hold = 0 if is_blocked else draw.house_holding_amount
+            admin_hold = min(total_sold, effective_hold)
+            pending = max(total_sold - effective_hold - total_offloaded, 0)
+
+            winning = winning_by_ticket.get(ticket)
+            prize_type = winning.prize_type if winning else None
+
+            # Agent settlement for this ticket (admin pays agents)
+            agent_settlement = 0
+            if winning:
+                for s in all_sales:
+                    if s.ticket == ticket:
+                        agent = self._agent_repo.get_by_id(s.batch.agent_id)
+                        if agent:
+                            is_half = self._blacklist_repo.is_half(draw_id, ticket)
+                            factor = agent.jp_factor if winning.prize_type == "JACKPOT" else agent.sp_factor
+                            payout = int(s.amount * factor * (0.5 if is_half else 1.0))
+                            agent_settlement += payout
+
+            # Master recovery for this ticket (master pays admin)
+            master_recovery = 0
+            if winning:
+                for o in all_offloads:
+                    if o.ticket == ticket:
+                        dealer = self._dealer_repo.get_by_id(o.master_dealer_id)
+                        if dealer:
+                            is_half = self._blacklist_repo.is_half(draw_id, ticket)
+                            factor = dealer.jp_factor if winning.prize_type == "JACKPOT" else dealer.sp_factor
+                            payout = int(o.amount * factor * (0.5 if is_half else 1.0))
+                            master_recovery += payout
+
+            # Per-ticket P&L: sales in - prizes out + master recovery - offloaded out
+            admin_profit_loss = (
+                total_sold - agent_settlement + master_recovery - total_offloaded
+            )
+
+            self.session.add(DrawSettlementTicket(
+                draw_id=draw_id,
+                ticket=ticket,
+                prize_type=prize_type,
+                total_sold=total_sold,
+                admin_hold=admin_hold,
+                offloaded=total_offloaded,
+                pending=pending,
+                admin_agent_settlement=agent_settlement,
+                master_recovery=master_recovery,
+                admin_profit_loss=admin_profit_loss,
+            ))
+
+        # Persist summary
+        self.session.add(DrawSettlementSummary(
+            draw_id=draw_id,
+            total_sales=report.admin.total_sales_amount,
+            total_agent_commission=report.admin.total_commission_payable,
+            total_agent_settlement=sum(
+                sum(w.payout for w in a.winning_tickets) for a in report.agents
+            ),
+            total_master_commission=report.admin.total_commission_from_md,
+            total_master_recovery=sum(
+                sum(w.payout for w in d.winning_tickets) for d in report.dealers
+            ),
+            admin_net_profit=report.admin.grand_total,
+            settled_at=datetime.now(UTC),
+        ))
+
+        self.session.flush()
+        return report
+
+    def _clear_settlement(self, draw_id: int) -> None:
+        """Remove existing settlement records for a draw."""
+        for model in [DrawSettlementAgent, DrawSettlementMaster,
+                       DrawSettlementTicket, DrawSettlementSummary, DrawTicketSnapshot]:
+            self.session.query(model).filter(
+                getattr(model, "draw_id") == draw_id
+            ).delete()
+
+    # ------------------------------------------------------------------
     # Agent Sections
     # ------------------------------------------------------------------
 
@@ -150,7 +309,7 @@ class ReportService:
             if agent is None:
                 continue
 
-            commission = total_sales * int(agent.commission) // 100
+            commission = int(total_sales * agent.commission_rate / 100.0)
             subtotal = total_sales - commission
 
             wt_details = self._agent_winning_tickets(
@@ -184,11 +343,13 @@ class ReportService:
                 continue
 
             is_half = self._blacklist_repo.is_half(wt.draw_id, wt.ticket)
-            payout = self._calc_payout(amount, wt.type, agent.jp_factor, agent.sp_factor, is_half)
+            payout = self._calc_payout(
+                amount, wt.prize_type, agent.jp_factor, agent.sp_factor, is_half
+            )
 
             details.append(WinningTicketDetail(
                 ticket=wt.ticket,
-                type=wt.type,
+                type=wt.prize_type,
                 amount=amount,
                 payout=payout,
                 is_half_blacklisted=is_half,
@@ -213,7 +374,7 @@ class ReportService:
             if dealer is None:
                 continue
 
-            commission = total_offloaded * int(dealer.commission) // 100
+            commission = int(total_offloaded * dealer.commission_rate / 100.0)
             subtotal = total_offloaded - commission
 
             wt_details = self._dealer_winning_tickets(
@@ -248,12 +409,12 @@ class ReportService:
 
             is_half = self._blacklist_repo.is_half(wt.draw_id, wt.ticket)
             payout = self._calc_payout(
-                amount, wt.type, dealer.jp_factor, dealer.sp_factor, is_half
+                amount, wt.prize_type, dealer.jp_factor, dealer.sp_factor, is_half
             )
 
             details.append(WinningTicketDetail(
                 ticket=wt.ticket,
-                type=wt.type,
+                type=wt.prize_type,
                 amount=amount,
                 payout=payout,
                 is_half_blacklisted=is_half,
@@ -284,6 +445,7 @@ class ReportService:
         total_commission_md = sum(d.commission_to_admin for d in dealer_lines)
         subtotal_offloads = total_offloaded - total_commission_md
 
+        # Admin-held winning tickets (portion not offloaded)
         admin_wt: list[WinningTicketDetail] = []
         for wt in winning_tickets:
             total_ticket_sales = sales_by_ticket.get(wt.ticket, 0)
@@ -295,9 +457,7 @@ class ReportService:
 
             is_half = self._blacklist_repo.is_half(draw_id, wt.ticket)
 
-            # Attribute admin-held amount proportionally to each agent that sold the ticket
-            for agent_id, agent_sales in sales_by_agent_ticket.items():
-                a_id, ticket = agent_id
+            for (a_id, ticket), agent_sales in sales_by_agent_ticket.items():
                 if ticket != wt.ticket or agent_sales <= 0 or total_ticket_sales <= 0:
                     continue
 
@@ -310,24 +470,26 @@ class ReportService:
                     continue
 
                 payout = self._calc_payout(
-                    prorated, wt.type, agent.jp_factor, agent.sp_factor, is_half
+                    prorated, wt.prize_type, agent.jp_factor, agent.sp_factor, is_half
                 )
 
                 admin_wt.append(WinningTicketDetail(
                     ticket=wt.ticket,
-                    type=wt.type,
+                    type=wt.prize_type,
                     amount=prorated,
                     payout=payout,
                     is_half_blacklisted=is_half,
                 ))
 
-        all_payouts = (
-            sum(d.payout for a in agent_lines for d in a.winning_tickets)
-            + sum(d.payout for d in dealer_lines for d in d.winning_tickets)
-            + sum(d.payout for d in admin_wt)
-        )
+        # Admin_Net_Profit (from admin's cash-flow perspective):
+        #   + subtotal_sales          (cash FROM agents after commission)
+        #   - agent_payout_total      (prize cash TO agents)
+        #   - subtotal_offloads       (cash TO master dealers, net of commission)
+        #   + dealer_payout_total     (prize cash FROM master dealers)
+        agent_payout_total = sum(d.payout for a in agent_lines for d in a.winning_tickets)
+        dealer_payout_total = sum(d.payout for d in dealer_lines for d in d.winning_tickets)
 
-        grand_total = subtotal_sales + subtotal_offloads + total_commission_md - all_payouts
+        grand_total = subtotal_sales - agent_payout_total - subtotal_offloads + dealer_payout_total
 
         return AdminReportSection(
             total_sales_amount=total_sales,
@@ -347,13 +509,11 @@ class ReportService:
     @staticmethod
     def _calc_payout(
         amount: int,
-        ticket_type: str,
-        jp_factor: int,
-        sp_factor: int,
+        prize_type: str,
+        jp_factor: float,
+        sp_factor: float,
         is_half: bool,
     ) -> int:
-        factor = jp_factor if ticket_type == "Jackpot" else sp_factor
-        payout = amount * factor
-        if is_half:
-            payout = payout // 2
+        factor = jp_factor if prize_type == "JACKPOT" else sp_factor
+        payout = int(amount * factor * (0.5 if is_half else 1.0))
         return payout

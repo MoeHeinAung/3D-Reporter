@@ -16,9 +16,17 @@ The system evaluates liability on a per-ticket basis (3-digit strings). For each
 - `max_offload_ticket`: The maximum number of unique tickets allowed per offload page (batch size).
 
 ### Decision Branching (Blacklist Impact)
-The `BLOCK` status in the settlement blacklist overrides the standard retention logic:
-- **Normal Ticket:** `effective_admin_hold = admin_hold`.
-- **Blocked Ticket:** `effective_admin_hold = 0`. This forces 100% of the sales volume into the "Pending" state for immediate offloading.
+The `restriction_type` column in `blacklist_tickets` controls retention logic:
+- **Normal Ticket:** `effective_admin_hold = admin_hold` (from `draws.house_holding_amount`).
+- **BLOCK Ticket:** `effective_admin_hold = 0`. Forces 100% of the sales volume into the "Pending" state for immediate offloading.
+- **HALF Ticket:** Does not affect hold. Reduces prize payouts by 50% at settlement time.
+
+### Risk Level Classification
+The `v_ticket_exposure_live` SQL view classifies each ticket's pending liability:
+- **CRITICAL:** pending >= 100,000
+- **HIGH:** pending >= 50,000
+- **MEDIUM:** pending >= 10,000
+- **LOW:** pending < 10,000
 
 ### Prioritization
 The system prioritizes offloading based on **descending pending liability**. Tickets with the highest at-risk volume are presented first to ensure the most significant liabilities are mitigated first.
@@ -74,13 +82,13 @@ The system prioritizes offloading based on **descending pending liability**. Tic
 - **Interaction:** Frontend calls `create_offload(draw_id, master_dealer_id, input_text, notes)`.
 
 ### Backend Components
-- **`OffloadService`:** Handles database persistence and aggregation for history views.
-- **`TicketParser`:** Enforces validation rules (3-digit digit check, amount range limits) to ensure data integrity between sales and offloads.
+- **`OffloadService`:** Handles database persistence, risk partitioning, and aggregation for history views. Uses `admin_hold` from draw's `house_holding_amount` and blacklist `restriction_type` for effective hold calculation.
+- **`SaleRepository` / `OffloadedRepository`:** Provide ticket-level aggregation queries joining through Batch for draw-scoped totals.
 
 ### Data Schema (SQLite)
-- **`offloaded_tickets`:** Stores the individual transaction lines with timestamps and links to `draws` and `master_dealers`.
-- **`settings`:** Persists user preferences for `admin_hold` and `offload_page_number` across sessions.
-- **`blacklist`:** Dependency for calculating `effective_admin_hold`.
+- **`offloaded`:** Stores individual offload transaction lines with `page_no` (TEXT), `notes`, `created_at`, and FKs to `draws` and `master_dealers`.
+- **`preferences`:** Key-value store persisting user preferences for `admin_hold`, `max_offload_amount`, `max_offload_ticket` across sessions.
+- **`blacklist_tickets`:** Dependency for calculating `effective_admin_hold` via `restriction_type` column.
 
 ### External Libraries
 - **`html2canvas`:** Critical for generating the "KALAW" PNG artifacts.

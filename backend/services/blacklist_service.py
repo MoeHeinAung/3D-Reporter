@@ -18,19 +18,17 @@ class BlacklistService:
         self.session = session
         self._repo = BlacklistRepository(session)
 
-    def create(self, draw_id: int, ticket: str, ticket_type: str) -> BlacklistTicket:
-        if ticket_type not in self.VALID_TYPES:
+    def create(self, draw_id: int, ticket: str, restriction_type: str) -> BlacklistTicket:
+        if restriction_type not in self.VALID_TYPES:
             raise ValidationError(
-                f"Invalid blacklist type: {ticket_type}. Must be HALF or BLOCK."
+                f"Invalid blacklist restriction type: {restriction_type}. Must be HALF or BLOCK."
             )
-        return self._repo.create(draw_id=draw_id, ticket=ticket, type=ticket_type)
+        return self._repo.create(
+            draw_id=draw_id, ticket=ticket, restriction_type=restriction_type
+        )
 
     def get_by_draw(self, draw_id: int) -> list[BlacklistTicket]:
-        return list(
-            self.session.query(BlacklistTicket)
-            .filter(BlacklistTicket.draw_id == draw_id)
-            .all()
-        )
+        return self._repo.get_by_draw(draw_id)
 
     def delete(self, ticket_id: int) -> None:
         ticket = self._repo.get_by_id(ticket_id)

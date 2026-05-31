@@ -2,7 +2,7 @@
 Database connection management.
 
 Provides a lazy-initialized SQLAlchemy engine singleton and a session factory.
-Call `init_db()` once at startup to create all tables.
+Call `init_db()` once at startup to create all tables, triggers, and views.
 """
 
 from __future__ import annotations
@@ -20,6 +20,35 @@ logger = logging.getLogger(__name__)
 
 _engine: Engine | None = None
 _SessionFactory: type[Session] | None = None
+
+_TRIGGERS_SQL = """
+CREATE TRIGGER IF NOT EXISTS trg_sales_insert
+AFTER INSERT ON sales
+BEGIN
+  UPDATE batches
+  SET total_amount = (SELECT COALESCE(SUM(amount), 0) FROM sales WHERE batch_id = NEW.batch_id),
+      ticket_count = (SELECT COUNT(*) FROM sales WHERE batch_id = NEW.batch_id)
+  WHERE id = NEW.batch_id;
+END;
+
+CREATE TRIGGER IF NOT EXISTS trg_sales_update
+AFTER UPDATE ON sales
+BEGIN
+  UPDATE batches
+  SET total_amount = (SELECT COALESCE(SUM(amount), 0) FROM sales WHERE batch_id = NEW.batch_id),
+      ticket_count = (SELECT COUNT(*) FROM sales WHERE batch_id = NEW.batch_id)
+  WHERE id = NEW.batch_id;
+END;
+
+CREATE TRIGGER IF NOT EXISTS trg_sales_delete
+AFTER DELETE ON sales
+BEGIN
+  UPDATE batches
+  SET total_amount = (SELECT COALESCE(SUM(amount), 0) FROM sales WHERE batch_id = OLD.batch_id),
+      ticket_count = (SELECT COUNT(*) FROM sales WHERE batch_id = OLD.batch_id)
+  WHERE id = OLD.batch_id;
+END;
+"""
 
 
 def _set_sqlite_pragmas(dbapi_connection, connection_record):
@@ -58,8 +87,8 @@ def get_session() -> Session:
 
 
 def init_db() -> None:
-    """Create all tables defined in the ORM models. Idempotent — safe to call on every startup."""
-    from backend.database.models import Base  # noqa: F811 — avoid circular import
+    """Create all tables, triggers, and views. Idempotent — safe to call on every startup."""
+    from backend.database.models import Base
 
     engine = get_engine()
 
@@ -70,7 +99,10 @@ def init_db() -> None:
     # Enable WAL mode (persists across connections)
     _exec_pragma(engine, "journal_mode", "WAL")
 
-    # Install database views
+    # Install triggers
+    _install_triggers(engine)
+
+    # Install views
     _install_views(engine)
 
 
@@ -81,8 +113,17 @@ def _exec_pragma(engine: Engine, pragma: str, value: str) -> None:
         conn.commit()
 
 
+def _install_triggers(engine: Engine) -> None:
+    """Install SQL triggers for batch total/ticket_count maintenance."""
+    logger.info("Installing database triggers...")
+    with engine.connect() as conn:
+        conn.connection.executescript(_TRIGGERS_SQL)
+        conn.commit()
+    logger.info("Database triggers installed.")
+
+
 def _install_views(engine: Engine) -> None:
-    """Execute views.sql if it exists."""
+    """Execute views.sql to create all database views."""
     views_path = os.path.join(os.path.dirname(__file__), "views.sql")
     if not os.path.exists(views_path):
         logger.warning("views.sql not found at %s — skipping views installation.", views_path)
@@ -96,9 +137,6 @@ def _install_views(engine: Engine) -> None:
 
     logger.info("Installing database views...")
     with engine.connect() as conn:
-        for stmt in sql.split(";"):
-            stmt = stmt.strip()
-            if stmt:
-                conn.exec_driver_sql(stmt)
+        conn.connection.executescript(sql)
         conn.commit()
     logger.info("Database views installed.")
