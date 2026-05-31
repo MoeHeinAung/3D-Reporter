@@ -1,8 +1,31 @@
 # CURRENT TASK — Frontend Sci-Fi Redesign: "Nexus Terminal"
 
-**Status:** Phases 1-10 Complete — Build Verified (2026-05-29)
+**Status:** Complete — UI Professional Upgrade Applied (2026-05-31)
 **Started:** 2026-05-29
 **Design Direction:** "Nexus Terminal" — Professional orbital-station command-center aesthetic. Elevated from cyberpunk neon to sophisticated high-definition sci-fi. Think: advanced facility operations terminal, not street-level neon signs.
+
+## Phase 12: UI Professional Upgrade (2026-05-31) — Complete
+
+**Goal:** Refine the "Nexus Terminal" aesthetic from "hacker terminal" to "mission control at a Fortune 500 company" — more polished, premium, and professional while preserving the sci-fi identity.
+
+**Preserved exactly:** Navbar design, card corner accents (bracket mixin), 12×8 CSS grid container.
+
+### Changes:
+- **Color Palette:** Deeper, richer darks (`--color-void: #080C12`), refined cyan (`--color-primary: #00C8E0`), indigo secondary (`#7B8CE0`), new gold warm accent (`#C4A35A`). Glow intensities reduced ~30%.
+- **Typography:** Relaxed h1-h3 tracking to `0.04em`, improved body line-height to `1.5`, reduced telemetry text-shadow, added `.text-body-lg`, `.label-positive`, `.label-warning`.
+- **Animations:** Removed `.glitch-hover` and `.border-chase`. Refined scanline, page-enter, fade-in-up, glow-breathe, digital-ping. Stagger delay adjusted to 60ms.
+- **New CSS Patterns:** `_data-display.scss` (`.stat-group`, `.stat-grid`, `.data-row`, `.status-ring`), `_tables.scss` (shared `.table` class, `.table__cell--*` variants, `.table__empty`, sort indicators).
+- **Cards:** Gradient header/footer borders (60% width), `.card__section` grouping, `.card__header--with-status` variant, compact padding refinement.
+- **Inputs:** Softer shadows, inner highlight, `.btn--secondary` variant, redesigned toggle switch (thinner track, rounded corners), unified double-ring focus.
+- **Pages:** Dashboard uses stat groups + data rows + button descriptions. All pages use unified table classes and empty states. Report has section dividers.
+
+**Files:** 4 commits (`1c47423`, `88c301f`, `4cf62ff`, `88286c0`), 16 files touched (7 new SCSS partials/styles, 2 new SCSS files, 7 page TSX files).
+
+**Verification:** SCSS compile ✓ · TypeScript ✓ · Vite build (53KB CSS, 321KB JS) ✓ · No new ESLint errors ✓
+
+**Spec & Plan:** `docs/superpowers/specs/2026-05-31-ui-professional-upgrade-design.md`, `docs/superpowers/plans/2026-05-31-ui-professional-upgrade-plan.md`
+
+---
 
 ## Constraints (Hard)
 

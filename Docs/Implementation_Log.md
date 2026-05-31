@@ -236,3 +236,35 @@ This document records feature implementations and significant structural changes
   - **Phase 10 — `_report.scss`:** Full token replacement — all hardcoded hex values (`#00F0FF`, `#2D323E`, `#8A2BE2`, `#FF0055`, `#b0b0b0`, `#e0e0e0`, `#666`, `#ccc`, `#0A0B0E`, `#a080d0`, `#b080e0`, `rgba(20,22,28,0.3)`) replaced with appropriate token references. Section titles get subtle text glow. Party cards use `--color-glass-bg` with backdrop-blur. Financial tables use `tabular-nums`. Grand total rows use multi-layer text glow. Winning ticket rows get violet tinted background striping.
 - **Files:** `frontend/src/styles/abstracts/_tokens.scss`, `frontend/src/styles/base/_typography.scss`, `frontend/src/styles/abstracts/_mixins.scss`, `frontend/src/styles/components/_card.scss`, `frontend/src/styles/components/_inputs.scss`, `frontend/src/styles/components/_navbar.scss`, `frontend/src/styles/components/_draws.scss`, `frontend/src/styles/base/_reset.scss`, `frontend/src/styles/components/_background.scss`, `frontend/src/styles/components/_animations.scss`, `frontend/src/styles/components/_report.scss`
 - **Verification:** TypeScript check passed (`tsc --noEmit`), production build succeeded (`npm run build` — 45 modules, 1.59s).
+
+## 2026-05-31 — UI Professional Upgrade: "Refined Command Center"
+
+### IMPL-018: Professional Polish Pass — Color, Typography, Components, Pages
+
+- **Rationale:** The existing "Nexus Terminal" redesign (IMPL-013) established a strong sci-fi identity but leaned toward "gamer peripheral" with neon-bright cyan (#00E5FF), harsh near-black backgrounds (#060B0F), intense glow effects, and flashy animations (glitch-hover, border-chase). The goal was to elevate to "mission control at a Fortune 500 company" — professional, premium, refined — while preserving the distinctive sci-fi character.
+- **Constraints:** Navbar design (trapezoid logo, link styles), card corner accent mixin (48px L-brackets), and 12x8 CSS grid container were locked — no structural changes permitted.
+- **Changes (16 files across 4 commits):**
+  - **Batch 1 — SCSS Foundation (1c47423):**
+    - **`_tokens.scss`:** Refined 60+ dark-mode tokens: deeper void (#080C12), richer obsidian (#0D1117), more professional cyan primary (#00C8E0, was #00E5FF), refined indigo secondary (#7B8CE0, was #A855F7). Added --color-warm gold accent (#C4A35A) and --color-surface-alt (#141B24). Reduced glow intensities ~30% (--color-accent-glow: 0.25, was 0.4). Shadow neon layers softened. New utility tokens: --color-table-stripe, --color-table-hover. Light mode and system preference overrides fully synced.
+    - **`_typography.scss`:** Google Fonts import with &display=swap. Relaxed h1-h3 letter-spacing to 0.04em (was 0.08em). Improved body line-height to 1.5 (was 1.4). Added .text-body-lg. Reduced .telemetry text-shadow. Added .label-positive and .label-warning.
+    - **`_animations.scss`:** Removed .glitch-hover (RGB-split) and .border-chase (circuit trace). Refined scanline peak opacity (0.15->0.06). Page-enter: 200ms with 4px upward slide. Fade-in-up: 300ms with 6px slide. Glow-breathe intensities reduced. Digital-ping: removed rotation. Stagger delay: 50ms->60ms.
+  - **Batch 2 — SCSS Components (88c301f):**
+    - **`_data-display.scss` (new):** .stat-group (label-above-value for dashboards), .stat-grid (responsive stat grid), .data-row (horizontal key->value with trend variants), .status-ring (SVG circle for health indicators).
+    - **`_tables.scss` (new):** Shared .table class — sticky gradient header, striped rows, hover left-border accent, .table__cell--numeric, .table__cell--mono, .table__cell--accent, .table__empty centered placeholder, CSS triangle sort indicators.
+    - **`main.scss`:** Imported components/data-display and components/tables.
+    - **`_card.scss`:** Header gradient border tightened to 60% width. Added .card__header--with-status (status dot: ok/warn/error). Added .card__section for content grouping. Footer uses gradient top border. Compact padding bumped from space-3 to space-4.
+    - **`_inputs.scss`:** Input shadow split into inner highlight + soft shadow. Placeholder opacity raised to 0.6. Added .btn--secondary (outlined cyan, hover fill + glow). Toggle redesigned: 36x18 track, 12x12 thumb, 2px radius, refined overshoot easing. Unified double-ring focus.
+    - **`_draws.scss`:** Ticket table thead background changed to gradient.
+    - **`_report.scss`:** Grand total text-shadow reduced to 2-layer softer glow. Added .report__section-divider.
+  - **Batch 3 — Page Components (4cf62ff, 88286c0):**
+    - **`Dashboard.tsx`:** System card: dl/dt/dd replaced with .stat-grid + .stat-group rows. Risk Telemetry: placeholder replaced with .data-row key-value pairs. Operational Status: placeholder replaced with .stat-group elements. Quick Actions: buttons with descriptions, Ping Backend changed to .btn--secondary.
+    - **`Sales.tsx`:** Expandable chevron gets smooth 200ms rotation transition. Confirmation modal table gets .table, .table__cell--mono, .table__cell--numeric classes.
+    - **`Draws.tsx`:** Ticket number cells use .table__cell--mono. Empty states unified to .table__empty pattern. Added currentTickets computed variable (fixes JSX parsing).
+    - **`Risk.tsx`:** Amount columns use .table__cell--numeric, ticket columns use .table__cell--mono. Tab count badges refined.
+    - **`Report.tsx`:** All amount cells use .table__cell--numeric. Section dividers added between Agent, Master Dealer, and Admin sections.
+    - **`Partners.tsx`:** ID columns use .table__cell--mono, commission/factor columns use .table__cell--numeric.
+    - **`Settings.tsx`:** Placeholder upgraded to .table__empty pattern with icon.
+- **Verification:** SCSS compilation passes, TypeScript check passes, Vite production build succeeds (53KB CSS, 321KB JS, 1.79s). All ESLint errors are pre-existing (react-hooks/set-state-in-effect, no-useless-escape in regex patterns) — zero new issues introduced.
+- **Files:** _tokens.scss, _typography.scss, _animations.scss, _data-display.scss (new), _tables.scss (new), main.scss, _card.scss, _inputs.scss, _draws.scss, _report.scss, Dashboard.tsx, Sales.tsx, Draws.tsx, Risk.tsx, Report.tsx, Partners.tsx, Settings.tsx
+- **Spec:** docs/superpowers/specs/2026-05-31-ui-professional-upgrade-design.md
+- **Plan:** docs/superpowers/plans/2026-05-31-ui-professional-upgrade-plan.md
