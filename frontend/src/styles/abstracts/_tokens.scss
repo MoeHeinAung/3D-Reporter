@@ -6,36 +6,38 @@
 
 :root {
   // ----- Color Palette: Deep Space (Dark Mode) -----
-  --color-void:       #060B0F;
-  --color-obsidian:   #080F1A;
-  --color-primary:    #00E5FF;
-  --color-secondary:  #A855F7;
+  --color-void:       #080C12;
+  --color-obsidian:   #0D1117;
+  --color-primary:    #00C8E0;
+  --color-secondary:  #7B8CE0;
   --color-error:      #FF3366;
   --color-border:     #1E2A3A;
 
   // Tertiary accents
-  --color-success:    #00E676;
-  --color-warning:    #F59E0B;
+  --color-success:    #00C853;
+  --color-warning:    #D97706;
   --color-info:       #38BDF8;
+  --color-warm:       #C4A35A;
 
   // Derived UI roles
   --color-bg-root:         var(--color-void);
   --color-bg-surface:      var(--color-obsidian);
-  --color-bg-elevated:     #0D1520;
+  --color-bg-elevated:     #11171E;
+  --color-surface-alt:     #141B24;
   --color-text-primary:    #EDF2F7;
-  --color-text-secondary:  #7B8BA3;
-  --color-text-muted:      #4A5568;
-  --color-accent-glow:     rgba(0, 229, 255, 0.4);
-  --color-error-glow:      rgba(255, 51, 102, 0.4);
-  --color-glass-bg:        rgba(8, 15, 26, 0.75);
-  --color-glass-border:    rgba(255, 255, 255, 0.06);
-  --color-radial-glow:     radial-gradient(ellipse at 30% 20%, rgba(0, 229, 255, 0.06) 0%, transparent 60%);
+  --color-text-secondary:  #8896A8;
+  --color-text-muted:      #545F71;
+  --color-accent-glow:     rgba(0, 200, 224, 0.25);
+  --color-error-glow:      rgba(255, 51, 102, 0.25);
+  --color-glass-bg:        rgba(13, 17, 23, 0.8);
+  --color-glass-border:    rgba(255, 255, 255, 0.05);
+  --color-radial-glow:     radial-gradient(ellipse at 30% 20%, rgba(0, 200, 224, 0.04) 0%, transparent 60%);
 
   // New utility tokens
   --color-navbar-bg:       rgba(4, 8, 16, 0.92);
-  --color-table-stripe:    rgba(0, 229, 255, 0.02);
-  --color-table-hover:     rgba(0, 229, 255, 0.05);
-  --color-border-glow:     rgba(0, 229, 255, 0.15);
+  --color-table-stripe:    rgba(0, 200, 224, 0.015);
+  --color-table-hover:     rgba(0, 200, 224, 0.04);
+  --color-border-glow:     rgba(0, 200, 224, 0.12);
 
   // ----- Typography -----
   --font-heading:    'Tektur', sans-serif;
@@ -92,12 +94,12 @@
   --border-width-accent: 2px;
 
   // ----- Shadows & Glows -----
-  --shadow-neon-primary:   0 0 4px rgba(0, 229, 255, 0.6), 0 0 12px rgba(0, 229, 255, 0.3), 0 0 30px rgba(0, 229, 255, 0.1);
-  --shadow-neon-secondary: 0 0 4px rgba(168, 85, 247, 0.6), 0 0 12px rgba(168, 85, 247, 0.3), 0 0 30px rgba(168, 85, 247, 0.1);
-  --shadow-neon-error:     0 0 4px rgba(255, 51, 102, 0.6), 0 0 12px rgba(255, 51, 102, 0.3), 0 0 30px rgba(255, 51, 102, 0.1);
+  --shadow-neon-primary:   0 0 4px rgba(0, 200, 224, 0.4), 0 0 12px rgba(0, 200, 224, 0.15), 0 0 24px rgba(0, 200, 224, 0.06);
+  --shadow-neon-secondary: 0 0 4px rgba(123, 140, 224, 0.4), 0 0 12px rgba(123, 140, 224, 0.15), 0 0 24px rgba(123, 140, 224, 0.06);
+  --shadow-neon-error:     0 0 4px rgba(255, 51, 102, 0.4), 0 0 12px rgba(255, 51, 102, 0.15), 0 0 24px rgba(255, 51, 102, 0.06);
   --shadow-surface:        0 2px 16px rgba(0, 0, 0, 0.5), 0 8px 40px rgba(0, 0, 0, 0.3);
-  --shadow-inner-glow:     inset 0 1px 0 rgba(255, 255, 255, 0.04);
-  --shadow-navbar-glow:    inset 0 -1px 0 rgba(0, 229, 255, 0.2);
+  --shadow-inner-glow:     inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  --shadow-navbar-glow:    inset 0 -1px 0 rgba(0, 200, 224, 0.15);
 
   // ----- Glassmorphism -----
   --glass-blur:      16px;
@@ -134,38 +136,40 @@
 [data-theme="light"] {
   --color-void:       #F4F6FA;
   --color-obsidian:   #FFFFFF;
-  --color-primary:    #009FAA;
-  --color-secondary:  #7C3AED;
+  --color-primary:    #008C99;
+  --color-secondary:  #5B6EC0;
   --color-error:      #E11D48;
   --color-border:     #D1D5DB;
 
-  --color-success:    #00C853;
-  --color-warning:    #D97706;
-  --color-info:       #0284C7;
+  --color-success:    #00A848;
+  --color-warning:    #B85C05;
+  --color-info:       #0277B8;
+  --color-warm:       #A8893A;
 
   --color-bg-root:         var(--color-void);
   --color-bg-surface:      var(--color-obsidian);
   --color-bg-elevated:     #E8ECF1;
+  --color-surface-alt:     #DEE2E8;
   --color-text-primary:    #111318;
   --color-text-secondary:  #4B5362;
-  --color-text-muted:      #8B93A3;
-  --color-accent-glow:     rgba(0, 159, 170, 0.2);
-  --color-error-glow:      rgba(225, 29, 72, 0.2);
+  --color-text-muted:      #7B8398;
+  --color-accent-glow:     rgba(0, 140, 153, 0.15);
+  --color-error-glow:      rgba(225, 29, 72, 0.15);
   --color-glass-bg:        rgba(255, 255, 255, 0.75);
-  --color-glass-border:    rgba(0, 0, 0, 0.08);
-  --color-radial-glow:     radial-gradient(ellipse at 30% 20%, rgba(0, 159, 170, 0.04) 0%, transparent 60%);
+  --color-glass-border:    rgba(0, 0, 0, 0.06);
+  --color-radial-glow:     radial-gradient(ellipse at 30% 20%, rgba(0, 140, 153, 0.03) 0%, transparent 60%);
 
   --color-navbar-bg:       rgba(244, 246, 250, 0.92);
-  --color-table-stripe:    rgba(0, 159, 170, 0.03);
-  --color-table-hover:     rgba(0, 159, 170, 0.06);
-  --color-border-glow:     rgba(0, 159, 170, 0.12);
+  --color-table-stripe:    rgba(0, 140, 153, 0.02);
+  --color-table-hover:     rgba(0, 140, 153, 0.04);
+  --color-border-glow:     rgba(0, 140, 153, 0.1);
 
-  --shadow-neon-primary:   0 0 4px rgba(0, 159, 170, 0.4), 0 0 12px rgba(0, 159, 170, 0.15), 0 0 24px rgba(0, 159, 170, 0.05);
-  --shadow-neon-secondary: 0 0 4px rgba(124, 58, 237, 0.4), 0 0 12px rgba(124, 58, 237, 0.15), 0 0 24px rgba(124, 58, 237, 0.05);
-  --shadow-neon-error:     0 0 4px rgba(225, 29, 72, 0.4), 0 0 12px rgba(225, 29, 72, 0.15), 0 0 24px rgba(225, 29, 72, 0.05);
+  --shadow-neon-primary:   0 0 4px rgba(0, 140, 153, 0.3), 0 0 12px rgba(0, 140, 153, 0.1), 0 0 20px rgba(0, 140, 153, 0.04);
+  --shadow-neon-secondary: 0 0 4px rgba(91, 110, 192, 0.3), 0 0 12px rgba(91, 110, 192, 0.1), 0 0 20px rgba(91, 110, 192, 0.04);
+  --shadow-neon-error:     0 0 4px rgba(225, 29, 72, 0.3), 0 0 12px rgba(225, 29, 72, 0.1), 0 0 20px rgba(225, 29, 72, 0.04);
   --shadow-surface:        0 2px 16px rgba(0, 0, 0, 0.06), 0 8px 40px rgba(0, 0, 0, 0.04);
   --shadow-inner-glow:     inset 0 1px 0 rgba(255, 255, 255, 0.6);
-  --shadow-navbar-glow:    inset 0 -1px 0 rgba(0, 159, 170, 0.15);
+  --shadow-navbar-glow:    inset 0 -1px 0 rgba(0, 140, 153, 0.12);
 }
 
 // System preference auto-detection (no explicit attribute needed)
@@ -173,37 +177,39 @@
   :root:not([data-theme="dark"]) {
     --color-void:       #F4F6FA;
     --color-obsidian:   #FFFFFF;
-    --color-primary:    #009FAA;
-    --color-secondary:  #7C3AED;
+    --color-primary:    #008C99;
+    --color-secondary:  #5B6EC0;
     --color-error:      #E11D48;
     --color-border:     #D1D5DB;
 
-    --color-success:    #00C853;
-    --color-warning:    #D97706;
-    --color-info:       #0284C7;
+    --color-success:    #00A848;
+    --color-warning:    #B85C05;
+    --color-info:       #0277B8;
+    --color-warm:       #A8893A;
 
     --color-bg-root:         var(--color-void);
     --color-bg-surface:      var(--color-obsidian);
     --color-bg-elevated:     #E8ECF1;
+    --color-surface-alt:     #DEE2E8;
     --color-text-primary:    #111318;
     --color-text-secondary:  #4B5362;
-    --color-text-muted:      #8B93A3;
-    --color-accent-glow:     rgba(0, 159, 170, 0.2);
-    --color-error-glow:      rgba(225, 29, 72, 0.2);
+    --color-text-muted:      #7B8398;
+    --color-accent-glow:     rgba(0, 140, 153, 0.15);
+    --color-error-glow:      rgba(225, 29, 72, 0.15);
     --color-glass-bg:        rgba(255, 255, 255, 0.75);
-    --color-glass-border:    rgba(0, 0, 0, 0.08);
-    --color-radial-glow:     radial-gradient(ellipse at 30% 20%, rgba(0, 159, 170, 0.04) 0%, transparent 60%);
+    --color-glass-border:    rgba(0, 0, 0, 0.06);
+    --color-radial-glow:     radial-gradient(ellipse at 30% 20%, rgba(0, 140, 153, 0.03) 0%, transparent 60%);
 
     --color-navbar-bg:       rgba(244, 246, 250, 0.92);
-    --color-table-stripe:    rgba(0, 159, 170, 0.03);
-    --color-table-hover:     rgba(0, 159, 170, 0.06);
-    --color-border-glow:     rgba(0, 159, 170, 0.12);
+    --color-table-stripe:    rgba(0, 140, 153, 0.02);
+    --color-table-hover:     rgba(0, 140, 153, 0.04);
+    --color-border-glow:     rgba(0, 140, 153, 0.1);
 
-    --shadow-neon-primary:   0 0 4px rgba(0, 159, 170, 0.4), 0 0 12px rgba(0, 159, 170, 0.15), 0 0 24px rgba(0, 159, 170, 0.05);
-    --shadow-neon-secondary: 0 0 4px rgba(124, 58, 237, 0.4), 0 0 12px rgba(124, 58, 237, 0.15), 0 0 24px rgba(124, 58, 237, 0.05);
-    --shadow-neon-error:     0 0 4px rgba(225, 29, 72, 0.4), 0 0 12px rgba(225, 29, 72, 0.15), 0 0 24px rgba(225, 29, 72, 0.05);
+    --shadow-neon-primary:   0 0 4px rgba(0, 140, 153, 0.3), 0 0 12px rgba(0, 140, 153, 0.1), 0 0 20px rgba(0, 140, 153, 0.04);
+    --shadow-neon-secondary: 0 0 4px rgba(91, 110, 192, 0.3), 0 0 12px rgba(91, 110, 192, 0.1), 0 0 20px rgba(91, 110, 192, 0.04);
+    --shadow-neon-error:     0 0 4px rgba(225, 29, 72, 0.3), 0 0 12px rgba(225, 29, 72, 0.1), 0 0 20px rgba(225, 29, 72, 0.04);
     --shadow-surface:        0 2px 16px rgba(0, 0, 0, 0.06), 0 8px 40px rgba(0, 0, 0, 0.04);
     --shadow-inner-glow:     inset 0 1px 0 rgba(255, 255, 255, 0.6);
-    --shadow-navbar-glow:    inset 0 -1px 0 rgba(0, 159, 170, 0.15);
+    --shadow-navbar-glow:    inset 0 -1px 0 rgba(0, 140, 153, 0.12);
   }
 }
