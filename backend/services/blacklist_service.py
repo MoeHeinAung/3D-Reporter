@@ -19,6 +19,10 @@ class BlacklistService:
         self._repo = BlacklistRepository(session)
 
     def create(self, draw_id: int, ticket: str, restriction_type: str) -> BlacklistTicket:
+        if not (ticket.isdigit() and len(ticket) == 3):
+            raise ValidationError(
+                f"Ticket must be exactly 3 numeric digits, got {ticket!r}."
+            )
         if restriction_type not in self.VALID_TYPES:
             raise ValidationError(
                 f"Invalid blacklist restriction type: {restriction_type}. Must be HALF or BLOCK."

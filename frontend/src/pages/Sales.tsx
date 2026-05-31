@@ -68,7 +68,7 @@ function parseSalesInput(input: string): ParsedLine[] {
     }
 
     const ticket = trimmed.substring(0, 3)
-    const body = trimmed.substring(3).replace(/[/~+.\=\s]+$/, '')
+    const body = trimmed.substring(3).replace(/[/~+.=\s]+$/, '')
 
     if (!/^\d{3}$/.test(ticket)) {
       return { index, raw: line, ticket, entries: [], formatType: null, isValid: false, error: `Invalid ticket "${ticket}" — must be exactly 3 digits` }
@@ -80,7 +80,7 @@ function parseSalesInput(input: string): ParsedLine[] {
     }
 
     // ---- Rule 3 (Dual): two amounts, first perm gets amt1, rest get amt2 ----
-    const dualMatch = body.match(/(\d+)[Rr\/\s\=\-\.\+\~]+(\d+)/)
+    const dualMatch = body.match(/(\d+)[Rr/\s=.+~-]+(\d+)/)
     if (dualMatch) {
       const amt1 = parseInt(dualMatch[1], 10)
       const amt2 = parseInt(dualMatch[2], 10)
@@ -204,7 +204,6 @@ export default function Sales() {
   const [saleModalOpen, setSaleModalOpen] = useState(false)
   const [modalAgentId, setModalAgentId] = useState<string | null>(null)
   const [rawInput, setRawInput] = useState('')
-  const [saleNote, setSaleNote] = useState('')
   const [saleFormSubmitting, setSaleFormSubmitting] = useState(false)
 
   // -- confirmation modal --
@@ -251,12 +250,13 @@ export default function Sales() {
   }, [])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchOpenDraw()
   }, [fetchOpenDraw])
 
   // ---- Fetch agents ----
 
-  const fetchAgents = useCallback(async () => {
+  const fetchAgents = useCallback(async (retainSelection?: string) => {
     setAgentsLoading(true)
     setAgentsError(null)
     const result = await api.get_all_agents()
@@ -264,23 +264,24 @@ export default function Sales() {
       setAgentsError(result.error)
     } else {
       setAgents(result)
+      const current = retainSelection ?? selectedAgentId
+      if (current !== null && result.find((a) => a.id === current)) {
+        if (selectedAgentId !== current) setSelectedAgentId(current)
+      } else if (result.length > 0 && selectedAgentId === null) {
+        setSelectedAgentId(result[0].id)
+      } else if (result.length === 0) {
+        setSelectedAgentId(null)
+      } else if (selectedAgentId !== null && !result.find((a) => a.id === selectedAgentId)) {
+        setSelectedAgentId(result[0].id)
+      }
     }
     setAgentsLoading(false)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchAgents()
   }, [fetchAgents])
-
-  // Keep selectedAgentId in sync when agents list changes
-  useEffect(() => {
-    if (selectedAgentId !== null && agents.length > 0 && !agents.find((a) => a.id === selectedAgentId)) {
-      setSelectedAgentId(agents[0].id)
-    }
-    if (agents.length === 0) {
-      setSelectedAgentId(null)
-    }
-  }, [agents, selectedAgentId])
 
   // ---- Fetch sales ----
 
@@ -299,6 +300,7 @@ export default function Sales() {
 
   useEffect(() => {
     if (openDraw) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       fetchSales(openDraw.id)
     } else {
       setSales([])
@@ -381,7 +383,6 @@ export default function Sales() {
   const openSaleModal = (agentId: string) => {
     setModalAgentId(agentId)
     setRawInput('')
-    setSaleNote('')
     setSaleModalOpen(true)
   }
 
@@ -390,7 +391,6 @@ export default function Sales() {
     setSaleFormSubmitting(false)
     setModalAgentId(null)
     setRawInput('')
-    setSaleNote('')
   }
 
   const openConfirmModal = () => {
@@ -416,12 +416,9 @@ export default function Sales() {
     let firstError: string | null = null
     for (const entry of allEntries) {
       const result = await api.record_sale(
-        openDraw.id,
-        modalAgentId,
         batchResult.id,
         entry.ticket,
         entry.amount,
-        saleNote || undefined,
       )
       if (isApiError(result) && !firstError) {
         firstError = result.error
@@ -499,7 +496,7 @@ export default function Sales() {
                         <div className="draws__list-item-info">
                           <span className="draws__list-item-date">{agent.name}</span>
                           <span className="draws__list-item-cutoff">
-                            Comm: {agent.commission}% | JP: {agent.jpFactor} | SP: {agent.spFactor}
+                            Comm: {agent.commissionRate}% | JP: {agent.jpFactor} | SP: {agent.spFactor}
                           </span>
                         </div>
                       </div>
@@ -602,9 +599,7 @@ export default function Sales() {
                                       <td />
                                       <td className="text-muted" style={{ paddingLeft: 'var(--space-5)' }}>{sale.ticket}</td>
                                       <td className="telemetry">{sale.amount.toLocaleString()}</td>
-                                      <td className="text-muted" style={{ maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                        {sale.note || '—'}
-                                      </td>
+                                      <td className="text-muted">—</td>
                                       <td />
                                     </tr>,
                                   )
@@ -687,16 +682,6 @@ export default function Sales() {
                 </div>
               </div>
 
-              <label className="input-label">
-                Note
-                <input
-                  className="input"
-                  type="text"
-                  value={saleNote}
-                  onChange={(e) => setSaleNote(e.target.value)}
-                  placeholder="Optional note for all records"
-                />
-              </label>
             </div>
             <div className="modal__footer">
               <button className="btn" type="button" onClick={closeSaleModal}>
@@ -745,12 +730,6 @@ export default function Sales() {
                   <dt>Total Amount</dt>
                   <dd className="telemetry">{totalAmount.toLocaleString()}</dd>
                 </div>
-                {saleNote && (
-                  <div className="draws__summary-row">
-                    <dt>Note</dt>
-                    <dd>{saleNote}</dd>
-                  </div>
-                )}
               </dl>
 
               <div className="sales__confirm-table-wrapper">

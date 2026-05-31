@@ -105,6 +105,8 @@ class DrawService:
         draw = self._repo.get_by_id(draw_id)
         if draw is None:
             raise NotFoundError(f"Draw {draw_id} not found.")
+        if draw.status == "SETTLED":
+            raise ValidationError(f"Cannot delete settled draw {draw_id}.")
         self._repo.delete(draw)
 
     def _assert_transition(self, draw: Draw, target: str) -> None:

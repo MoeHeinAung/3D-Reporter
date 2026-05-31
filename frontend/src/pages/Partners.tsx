@@ -12,19 +12,17 @@ type PartnerTab = 'agents' | 'dealers'
 interface PartnerFormData {
   id: string
   name: string
-  commission: number
+  commissionRate: number
   jpFactor: number
   spFactor: number
-  note: string
 }
 
 const EMPTY_FORM: PartnerFormData = {
   id: '',
   name: '',
-  commission: 0,
+  commissionRate: 0,
   jpFactor: 0,
   spFactor: 0,
-  note: '',
 }
 
 // ---------------------------------------------------------------------------
@@ -112,10 +110,12 @@ export default function Partners() {
   }, [])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchAgents()
   }, [fetchAgents])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchDealers()
   }, [fetchDealers])
 
@@ -138,10 +138,9 @@ export default function Partners() {
     setForm({
       id: item.id,
       name: item.name,
-      commission: item.commission,
+      commissionRate: item.commissionRate,
       jpFactor: item.jpFactor,
       spFactor: item.spFactor,
-      note: item.note ?? '',
     })
     setEditingId(item.id)
     setModalOpen(true)
@@ -156,24 +155,24 @@ export default function Partners() {
     setFormSubmitting(true)
     if (tab === 'agents') {
       if (formMode === 'insert') {
-        const result = await api.create_agent(form.id, form.name, form.commission, form.jpFactor, form.spFactor, form.note || undefined)
+        const result = await api.create_agent(form.id, form.name, form.commissionRate, form.jpFactor, form.spFactor)
         if (isApiError(result)) { setAgentsError(result.error); setFormSubmitting(false); return }
         closeModal()
         await fetchAgents()
       } else if (editingId) {
-        const result = await api.update_agent(editingId, form.name, form.commission, form.jpFactor, form.spFactor, form.note || undefined)
+        const result = await api.update_agent(editingId, form.name, form.commissionRate, form.jpFactor, form.spFactor)
         if (isApiError(result)) { setAgentsError(result.error); setFormSubmitting(false); return }
         closeModal()
         await fetchAgents()
       }
     } else {
       if (formMode === 'insert') {
-        const result = await api.create_master_dealer(form.id, form.name, form.commission, form.jpFactor, form.spFactor, form.note || undefined)
+        const result = await api.create_master_dealer(form.id, form.name, form.commissionRate, form.jpFactor, form.spFactor)
         if (isApiError(result)) { setDealersError(result.error); setFormSubmitting(false); return }
         closeModal()
         await fetchDealers()
       } else if (editingId) {
-        const result = await api.update_master_dealer(editingId, form.name, form.commission, form.jpFactor, form.spFactor, form.note || undefined)
+        const result = await api.update_master_dealer(editingId, form.name, form.commissionRate, form.jpFactor, form.spFactor)
         if (isApiError(result)) { setDealersError(result.error); setFormSubmitting(false); return }
         closeModal()
         await fetchDealers()
@@ -183,6 +182,8 @@ export default function Partners() {
   }
 
   const handleDelete = async (id: string) => {
+    const entityType = tab === 'agents' ? 'Agent' : 'Master Dealer'
+    if (!window.confirm(`Delete ${entityType} "${id}"? This cannot be undone.`)) return
     const result = tab === 'agents' ? await api.delete_agent(id) : await api.delete_master_dealer(id)
     if (isApiError(result)) {
       if (tab === 'agents') setAgentsError(result.error)
@@ -252,10 +253,10 @@ export default function Partners() {
                   <tr>
                     <th style={{ width: 72 }}>ID</th>
                     <th>Name</th>
-                    <th style={{ width: 100 }}>Commission</th>
+                    <th style={{ width: 110 }}>Comm. Rate</th>
                     <th style={{ width: 90 }}>JP Factor</th>
                     <th style={{ width: 90 }}>SP Factor</th>
-                    <th>Note</th>
+                    <th style={{ width: 72 }}>Active</th>
                     <th style={{ width: 72 }} />
                   </tr>
                 </thead>
@@ -264,11 +265,13 @@ export default function Partners() {
                     <tr key={item.id}>
                       <td className="table__cell--mono">{item.id}</td>
                       <td>{item.name}</td>
-                      <td className="table__cell--numeric">{item.commission.toLocaleString()}</td>
+                      <td className="table__cell--numeric">{item.commissionRate}%</td>
                       <td className="table__cell--numeric">{item.jpFactor}</td>
                       <td className="table__cell--numeric">{item.spFactor}</td>
-                      <td className="text-muted" style={{ maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {item.note || '—'}
+                      <td>
+                        <span className={`draws__badge draws__badge--${item.active ? 'open' : 'settled'}`}>
+                          {item.active ? 'Yes' : 'No'}
+                        </span>
                       </td>
                       <td>
                         <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
@@ -342,12 +345,12 @@ export default function Partners() {
                 />
               </label>
               <label className="input-label">
-                Commission
+                Commission Rate (%)
                 <input
                   className="input"
                   type="number"
-                  value={form.commission}
-                  onChange={(e) => setForm((f) => ({ ...f, commission: Number(e.target.value) }))}
+                  value={form.commissionRate}
+                  onChange={(e) => setForm((f) => ({ ...f, commissionRate: Number(e.target.value) }))}
                 />
               </label>
               <label className="input-label">
@@ -366,16 +369,6 @@ export default function Partners() {
                   type="number"
                   value={form.spFactor}
                   onChange={(e) => setForm((f) => ({ ...f, spFactor: Number(e.target.value) }))}
-                />
-              </label>
-              <label className="input-label">
-                Note
-                <input
-                  className="input"
-                  type="text"
-                  value={form.note}
-                  onChange={(e) => setForm((f) => ({ ...f, note: e.target.value }))}
-                  placeholder="Optional note"
                 />
               </label>
             </div>

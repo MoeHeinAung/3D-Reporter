@@ -163,7 +163,14 @@ class ReportService:
     # ------------------------------------------------------------------
 
     def settle_and_persist(self, draw_id: int) -> ReportData:
-        """Generate the report AND persist settlement records for a draw."""
+        """Generate the report, persist settlement records, and mark the draw SETTLED — all in one transaction."""
+        draw = self._draw_repo.get_by_id(draw_id)
+        if draw is None:
+            raise NotFoundError(f"Draw {draw_id} not found.")
+        if draw.status == "SETTLED":
+            from backend.errors import ValidationError
+            raise ValidationError(f"Draw {draw_id} is already SETTLED.")
+
         report = self.generate_report(draw_id)
 
         # Clear any prior settlement records for this draw
@@ -280,6 +287,10 @@ class ReportService:
             admin_net_profit=report.admin.grand_total,
             settled_at=datetime.now(UTC),
         ))
+
+        # Transition draw status to SETTLED
+        draw.status = "SETTLED"
+        draw.settled_at = datetime.now(UTC)
 
         self.session.flush()
         return report

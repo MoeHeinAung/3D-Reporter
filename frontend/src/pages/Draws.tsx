@@ -10,17 +10,15 @@ import type { OpenDrawInfo, BlacklistTicketResult, WinningTicketResult } from '.
 type TicketTab = 'blacklist' | 'winning'
 
 interface DrawFormData {
-  openDate: string
-  cutoffTime: string
+  drawName: string
   houseHoldingAmount: number
-  note: string
+  notes: string
 }
 
 const EMPTY_FORM: DrawFormData = {
-  openDate: new Date().toISOString().slice(0, 10),
-  cutoffTime: '14:00',
+  drawName: '',
   houseHoldingAmount: 0,
-  note: '',
+  notes: '',
 }
 
 // ---------------------------------------------------------------------------
@@ -111,7 +109,7 @@ export default function Draws() {
 
   // ---- Fetch draws ----
 
-  const fetchDraws = useCallback(async () => {
+  const fetchDraws = useCallback(async (retainSelection?: number) => {
     setDrawsLoading(true)
     setDrawsError(null)
     const result = await api.get_all_draws()
@@ -119,7 +117,15 @@ export default function Draws() {
       setDrawsError(result.error)
     } else {
       setDraws(result)
-      if (result.length > 0 && selectedDrawId === null) {
+      // Resolve selected ID: keep current if still valid, else pick first
+      const current = retainSelection ?? selectedDrawId
+      if (current !== null && result.find((d) => d.id === current)) {
+        if (selectedDrawId !== current) setSelectedDrawId(current)
+      } else if (result.length > 0 && selectedDrawId === null) {
+        setSelectedDrawId(result[0].id)
+      } else if (result.length === 0) {
+        setSelectedDrawId(null)
+      } else if (selectedDrawId !== null && !result.find((d) => d.id === selectedDrawId)) {
         setSelectedDrawId(result[0].id)
       }
     }
@@ -127,18 +133,9 @@ export default function Draws() {
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchDraws()
   }, [fetchDraws])
-
-  // Keep selectedDrawId in sync when draws list changes (e.g. after delete)
-  useEffect(() => {
-    if (selectedDrawId !== null && draws.length > 0 && !draws.find((d) => d.id === selectedDrawId)) {
-      setSelectedDrawId(draws[0].id)
-    }
-    if (draws.length === 0) {
-      setSelectedDrawId(null)
-    }
-  }, [draws, selectedDrawId])
 
   // ---- Fetch tickets for selected draw ----
 
@@ -164,6 +161,7 @@ export default function Draws() {
 
   useEffect(() => {
     if (selectedDrawId !== null) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       fetchTickets(selectedDrawId)
     }
   }, [selectedDrawId, fetchTickets])
@@ -184,10 +182,9 @@ export default function Draws() {
   const openEditModal = (draw: OpenDrawInfo) => {
     setDrawFormMode('edit')
     setDrawForm({
-      openDate: draw.openDate,
-      cutoffTime: draw.cutoffTime,
+      drawName: draw.drawName,
       houseHoldingAmount: draw.houseHoldingAmount,
-      note: draw.note ?? '',
+      notes: draw.notes ?? '',
     })
     setEditingDrawId(draw.id)
     setDrawModalOpen(true)
@@ -200,9 +197,9 @@ export default function Draws() {
 
   const submitDrawForm = async () => {
     setDrawFormSubmitting(true)
-    const { openDate, cutoffTime, houseHoldingAmount, note } = drawForm
+    const { drawName, houseHoldingAmount, notes } = drawForm
     if (drawFormMode === 'insert') {
-      const result = await api.open_draw(openDate, cutoffTime, houseHoldingAmount, note || undefined)
+      const result = await api.open_draw(drawName, houseHoldingAmount, notes || undefined)
       if (isApiError(result)) {
         setDrawsError(result.error)
         setDrawFormSubmitting(false)
@@ -211,7 +208,7 @@ export default function Draws() {
       closeDrawModal()
       await fetchDraws()
     } else if (editingDrawId !== null) {
-      const result = await api.update_draw(editingDrawId, openDate, cutoffTime, houseHoldingAmount, note || undefined)
+      const result = await api.update_draw(editingDrawId, drawName, houseHoldingAmount, notes || undefined)
       if (isApiError(result)) {
         setDrawsError(result.error)
         setDrawFormSubmitting(false)
@@ -224,6 +221,7 @@ export default function Draws() {
   }
 
   const handleDeleteDraw = async (drawId: number) => {
+    if (!window.confirm(`Delete draw #${drawId}? This cannot be undone.`)) return
     const result = await api.delete_draw(drawId)
     if (isApiError(result)) {
       setDrawsError(result.error)
@@ -235,7 +233,7 @@ export default function Draws() {
   // ---- Ticket modal handlers ----
 
   const openTicketModal = () => {
-    setTicketForm({ ticket: '', type: ticketTab === 'blacklist' ? 'HALF' : 'Jackpot' })
+    setTicketForm({ ticket: '', type: ticketTab === 'blacklist' ? 'HALF' : 'JACKPOT' })
     setTicketModalOpen(true)
   }
 
@@ -270,6 +268,7 @@ export default function Draws() {
   }
 
   const handleDeleteTicket = async (ticketId: number) => {
+    if (!window.confirm(`Delete this ${ticketTab} ticket? This cannot be undone.`)) return
     const result =
       ticketTab === 'blacklist'
         ? await api.delete_blacklist_ticket(ticketId)
@@ -284,6 +283,8 @@ export default function Draws() {
   // ---- Render ----
 
   const currentTickets = ticketTab === 'blacklist' ? blacklistTickets : winningTickets;
+  const getTicketType = (t: BlacklistTicketResult | WinningTicketResult): string =>
+    'restrictionType' in t ? t.restrictionType : t.prizeType;
 
   return (
     <>
@@ -310,7 +311,7 @@ export default function Draws() {
             <div className="draws__state draws__state--error">
               <span className="draws__state-icon">!</span>
               {drawsError}
-              <button className="btn btn--sm" type="button" onClick={fetchDraws} style={{ marginTop: '0.5rem' }}>
+              <button className="btn btn--sm" type="button" onClick={() => fetchDraws()} style={{ marginTop: '0.5rem' }}>
                 Retry
               </button>
             </div>
@@ -333,8 +334,8 @@ export default function Draws() {
                       <div className="draws__list-item-main">
                         <span className="draws__list-item-id">#{draw.id}</span>
                         <div className="draws__list-item-info">
-                          <span className="draws__list-item-date">{draw.openDate}</span>
-                          <span className="draws__list-item-cutoff">{draw.cutoffTime}</span>
+                          <span className="draws__list-item-date">{draw.drawName}</span>
+                          <span className="draws__list-item-cutoff">{draw.openedAt ? new Date(draw.openedAt).toLocaleString() : '—'}</span>
                         </div>
                         <span className={`draws__badge draws__badge--${draw.status.toLowerCase()}`}>
                           {draw.status}
@@ -381,20 +382,20 @@ export default function Draws() {
                     </div>
                     <dl className="draws__summary-dl">
                       <div className="draws__summary-row">
-                        <dt>Open Date</dt>
-                        <dd>{selectedDraw.openDate}</dd>
+                        <dt>Draw Name</dt>
+                        <dd>{selectedDraw.drawName}</dd>
                       </div>
                       <div className="draws__summary-row">
-                        <dt>Cutoff Time</dt>
-                        <dd>{selectedDraw.cutoffTime}</dd>
+                        <dt>Opened At</dt>
+                        <dd>{selectedDraw.openedAt ? new Date(selectedDraw.openedAt).toLocaleString() : '—'}</dd>
                       </div>
                       <div className="draws__summary-row">
                         <dt>House Holding</dt>
                         <dd className="telemetry">{selectedDraw.houseHoldingAmount.toLocaleString()}</dd>
                       </div>
                       <div className="draws__summary-row">
-                        <dt>Note</dt>
-                        <dd>{selectedDraw.note || <span className="text-muted">—</span>}</dd>
+                        <dt>Notes</dt>
+                        <dd>{selectedDraw.notes || <span className="text-muted">—</span>}</dd>
                       </div>
                     </dl>
                   </>
@@ -476,7 +477,7 @@ export default function Draws() {
                       <td className="text-muted">#{t.id}</td>
                       <td className="table__cell--mono">{t.ticket}</td>
                       <td>
-                        <span className="draws__badge draws__badge--ticket">{t.type}</span>
+                        <span className="draws__badge draws__badge--ticket">{getTicketType(t)}</span>
                       </td>
                       <td>
                         <button
@@ -511,21 +512,13 @@ export default function Draws() {
             </div>
             <div className="modal__body">
               <label className="input-label">
-                Open Date
+                Draw Name
                 <input
                   className="input"
-                  type="date"
-                  value={drawForm.openDate}
-                  onChange={(e) => setDrawForm((f) => ({ ...f, openDate: e.target.value }))}
-                />
-              </label>
-              <label className="input-label">
-                Cutoff Time
-                <input
-                  className="input"
-                  type="time"
-                  value={drawForm.cutoffTime}
-                  onChange={(e) => setDrawForm((f) => ({ ...f, cutoffTime: e.target.value }))}
+                  type="text"
+                  value={drawForm.drawName}
+                  onChange={(e) => setDrawForm((f) => ({ ...f, drawName: e.target.value }))}
+                  placeholder="e.g. 2026-05-31 Morning"
                 />
               </label>
               <label className="input-label">
@@ -538,13 +531,13 @@ export default function Draws() {
                 />
               </label>
               <label className="input-label">
-                Note
+                Notes
                 <input
                   className="input"
                   type="text"
-                  value={drawForm.note}
-                  onChange={(e) => setDrawForm((f) => ({ ...f, note: e.target.value }))}
-                  placeholder="Optional note"
+                  value={drawForm.notes}
+                  onChange={(e) => setDrawForm((f) => ({ ...f, notes: e.target.value }))}
+                  placeholder="Optional notes"
                 />
               </label>
             </div>
@@ -608,8 +601,8 @@ export default function Draws() {
                     </>
                   ) : (
                     <>
-                      <option value="Jackpot">Jackpot</option>
-                      <option value="Minor">Minor</option>
+                      <option value="JACKPOT">JACKPOT</option>
+                      <option value="MINOR">MINOR</option>
                     </>
                   )}
                 </select>

@@ -38,36 +38,36 @@ interface PywebviewAPI {
   get_risk_telemetry(): Promise<RiskTelemetry>
   get_theme_preference(): Promise<string>
   set_theme_preference(theme: string): Promise<boolean>
-  open_draw(open_date: string, cutoff_time: string, house_holding_amount?: number, note?: string): Promise<DrawResult | ApiError>
+  open_draw(draw_name: string, house_holding_amount?: number, notes?: string): Promise<DrawResult | ApiError>
   close_draw(draw_id: number): Promise<DrawResult | ApiError>
   settle_draw(draw_id: number): Promise<DrawResult | ApiError>
   get_open_draw(): Promise<OpenDrawInfo | null | ApiError>
-  record_sale(draw_id: number, agent_id: string, batch_id: number, ticket: string, amount: number, note?: string): Promise<SaleResult | ApiError>
+  record_sale(batch_id: number, ticket: string, amount: number): Promise<SaleResult | ApiError>
   get_all_draws(): Promise<OpenDrawInfo[] | ApiError>
   get_draw(draw_id: number): Promise<OpenDrawInfo | ApiError>
-  update_draw(draw_id: number, open_date?: string, cutoff_time?: string, house_holding_amount?: number, note?: string): Promise<DrawResult | ApiError>
+  update_draw(draw_id: number, draw_name?: string, house_holding_amount?: number, notes?: string): Promise<DrawResult | ApiError>
   delete_draw(draw_id: number): Promise<DeleteResult | ApiError>
   get_blacklist_tickets(draw_id: number): Promise<BlacklistTicketResult[] | ApiError>
-  create_blacklist_ticket(draw_id: number, ticket: string, ticket_type: string): Promise<BlacklistTicketResult | ApiError>
+  create_blacklist_ticket(draw_id: number, ticket: string, restriction_type: string): Promise<BlacklistTicketResult | ApiError>
   delete_blacklist_ticket(ticket_id: number): Promise<DeleteResult | ApiError>
   get_winning_tickets(draw_id: number): Promise<WinningTicketResult[] | ApiError>
-  create_winning_ticket(draw_id: number, ticket: string, ticket_type: string): Promise<WinningTicketResult | ApiError>
+  create_winning_ticket(draw_id: number, ticket: string, prize_type: string): Promise<WinningTicketResult | ApiError>
   delete_winning_ticket(ticket_id: number): Promise<DeleteResult | ApiError>
   echo(message: string): Promise<string>
   ping(): Promise<string>
   api_mode(): Promise<string>
   get_all_agents(): Promise<Agent[] | ApiError>
-  create_agent(id: string, name: string, commission?: number, jp_factor?: number, sp_factor?: number, note?: string): Promise<PartnerResult | ApiError>
-  update_agent(agent_id: string, name?: string, commission?: number, jp_factor?: number, sp_factor?: number, note?: string): Promise<PartnerResult | ApiError>
+  create_agent(id: string, name: string, commission_rate?: number, jp_factor?: number, sp_factor?: number): Promise<PartnerResult | ApiError>
+  update_agent(agent_id: string, name?: string, commission_rate?: number, jp_factor?: number, sp_factor?: number, active?: boolean): Promise<PartnerResult | ApiError>
   delete_agent(agent_id: string): Promise<DeleteResult | ApiError>
   get_all_master_dealers(): Promise<MasterDealer[] | ApiError>
-  create_master_dealer(id: string, name: string, commission?: number, jp_factor?: number, sp_factor?: number, note?: string): Promise<PartnerResult | ApiError>
-  update_master_dealer(dealer_id: string, name?: string, commission?: number, jp_factor?: number, sp_factor?: number, note?: string): Promise<PartnerResult | ApiError>
+  create_master_dealer(id: string, name: string, commission_rate?: number, jp_factor?: number, sp_factor?: number): Promise<PartnerResult | ApiError>
+  update_master_dealer(dealer_id: string, name?: string, commission_rate?: number, jp_factor?: number, sp_factor?: number, active?: boolean): Promise<PartnerResult | ApiError>
   delete_master_dealer(dealer_id: string): Promise<DeleteResult | ApiError>
   get_sales_by_draw(draw_id: number): Promise<SaleRecord[] | ApiError>
   get_or_create_batch(draw_id: number, agent_id: string): Promise<BatchInfo | ApiError>
   get_risk_breakdown(draw_id: number): Promise<RiskBreakdown | ApiError>
-  create_offload(draw_id: number, master_dealer_id: string, entries_json: string, page_no: number, note?: string): Promise<OffloadResult | ApiError>
+  create_offload(draw_id: number, master_dealer_id: string, entries_json: string, page_no?: string, notes?: string): Promise<OffloadResult | ApiError>
   get_offload_history(draw_id: number): Promise<OffloadRecord[] | ApiError>
   get_offload_config(): Promise<OffloadConfig | ApiError>
   update_offload_config(key: string, value: string): Promise<{ ok: boolean } | ApiError>
@@ -90,8 +90,8 @@ function getAPI(): PywebviewAPI {
   let _nextDrawId = 1
   let _nextBlacklistId = 1
   let _nextWinningId = 1
-  const _mockBlacklist: Array<{ id: number; drawId: number; ticket: string; type: string }> = []
-  const _mockWinnings: Array<{ id: number; drawId: number; ticket: string; type: string }> = []
+  const _mockBlacklist: Array<{ id: number; drawId: number; ticket: string; restrictionType: string }> = []
+  const _mockWinnings: Array<{ id: number; drawId: number; ticket: string; prizeType: string }> = []
   const _mockAgents: Agent[] = []
   const _mockMasterDealers: MasterDealer[] = []
   const _mockSales: SaleRecord[] = []
@@ -144,7 +144,7 @@ function getAPI(): PywebviewAPI {
     async set_theme_preference() {
       return true
     },
-    async open_draw(open_date: string, cutoff_time: string, house_holding_amount?: number, note?: string) {
+    async open_draw(draw_name: string, house_holding_amount?: number, notes?: string) {
       const hasOpen = _mockDraws.find((d) => d.status === 'OPEN')
       if (hasOpen) {
         return { error: `Cannot open a new draw: draw ${hasOpen.id} is already OPEN.` }
@@ -155,11 +155,13 @@ function getAPI(): PywebviewAPI {
       }
       const entry: OpenDrawInfo = {
         id: _nextDrawId++,
-        openDate: open_date,
-        cutoffTime: cutoff_time,
+        drawName: draw_name,
         status: 'OPEN',
         houseHoldingAmount: house_holding_amount ?? 0,
-        note: note ?? null,
+        openedAt: new Date().toISOString(),
+        closedAt: null,
+        settledAt: null,
+        notes: notes ?? null,
       }
       _mockDraws.push(entry)
       return { id: entry.id, status: entry.status }
@@ -182,19 +184,19 @@ function getAPI(): PywebviewAPI {
       const d = _mockDraws.find((x) => x.status === 'OPEN')
       return d ?? null
     },
-    async record_sale(draw_id: number, agent_id: string, _batch_id: number, ticket: string, amount: number, note?: string) {
+    async record_sale(batch_id: number, ticket: string, amount: number) {
+      const batch = _mockBatches.find((b) => b.id === batch_id)
+      if (!batch) return { error: `Batch ${batch_id} not found.` }
       const entry: SaleRecord = {
         id: _nextSaleId++,
-        drawId: draw_id,
-        agentId: agent_id,
-        batchId: _batch_id,
+        drawId: batch.drawId,
+        agentId: batch.agentId,
+        batchId: batch_id,
         ticket,
         amount,
-        note: note ?? null,
       }
       _mockSales.push(entry)
-      const batch = _mockBatches.find((b) => b.id === _batch_id)
-      if (batch) batch.totalAmount += amount
+      batch.totalAmount += amount
       return { id: entry.id, ticket: entry.ticket, amount: entry.amount }
     },
 
@@ -205,13 +207,12 @@ function getAPI(): PywebviewAPI {
       const d = _mockDraws.find((x) => x.id === draw_id)
       return d ?? { error: `Draw ${draw_id} not found.` }
     },
-    async update_draw(draw_id: number, open_date?: string, cutoff_time?: string, house_holding_amount?: number, note?: string) {
+    async update_draw(draw_id: number, draw_name?: string, house_holding_amount?: number, notes?: string) {
       const d = _mockDraws.find((x) => x.id === draw_id)
       if (!d) return { error: `Draw ${draw_id} not found.` }
-      if (open_date !== undefined && open_date !== null) d.openDate = open_date
-      if (cutoff_time !== undefined && cutoff_time !== null) d.cutoffTime = cutoff_time
+      if (draw_name !== undefined && draw_name !== null) d.drawName = draw_name
       if (house_holding_amount !== undefined && house_holding_amount !== null) d.houseHoldingAmount = house_holding_amount
-      if (note !== undefined) d.note = note
+      if (notes !== undefined) d.notes = notes
       return { id: d.id, status: d.status }
     },
     async delete_draw(draw_id: number) {
@@ -223,10 +224,10 @@ function getAPI(): PywebviewAPI {
     async get_blacklist_tickets(draw_id: number) {
       return _mockBlacklist.filter((t) => t.drawId === draw_id)
     },
-    async create_blacklist_ticket(draw_id: number, ticket: string, ticket_type: string) {
-      const entry = { id: _nextBlacklistId++, drawId: draw_id, ticket, type: ticket_type }
+    async create_blacklist_ticket(draw_id: number, ticket: string, restriction_type: string) {
+      const entry = { id: _nextBlacklistId++, drawId: draw_id, ticket, restrictionType: restriction_type }
       _mockBlacklist.push(entry)
-      return { id: entry.id, ticket: entry.ticket, type: entry.type }
+      return { id: entry.id, drawId: entry.drawId, ticket: entry.ticket, restrictionType: entry.restrictionType }
     },
     async delete_blacklist_ticket(ticket_id: number) {
       const idx = _mockBlacklist.findIndex((t) => t.id === ticket_id)
@@ -237,10 +238,10 @@ function getAPI(): PywebviewAPI {
     async get_winning_tickets(draw_id: number) {
       return _mockWinnings.filter((t) => t.drawId === draw_id)
     },
-    async create_winning_ticket(draw_id: number, ticket: string, ticket_type: string) {
-      const entry = { id: _nextWinningId++, drawId: draw_id, ticket, type: ticket_type }
+    async create_winning_ticket(draw_id: number, ticket: string, prize_type: string) {
+      const entry = { id: _nextWinningId++, drawId: draw_id, ticket, prizeType: prize_type }
       _mockWinnings.push(entry)
-      return { id: entry.id, ticket: entry.ticket, type: entry.type }
+      return { id: entry.id, drawId: entry.drawId, ticket: entry.ticket, prizeType: entry.prizeType }
     },
     async delete_winning_ticket(ticket_id: number) {
       const idx = _mockWinnings.findIndex((t) => t.id === ticket_id)
@@ -253,21 +254,21 @@ function getAPI(): PywebviewAPI {
     async get_all_agents() {
       return [..._mockAgents]
     },
-    async create_agent(id: string, name: string, commission?: number, jp_factor?: number, sp_factor?: number, note?: string) {
+    async create_agent(id: string, name: string, commission_rate?: number, jp_factor?: number, sp_factor?: number) {
       const exists = _mockAgents.find((a) => a.id === id)
       if (exists) return { error: `Agent ${id} already exists.` }
-      const entry: Agent = { id, name, commission: commission ?? 0, jpFactor: jp_factor ?? 0, spFactor: sp_factor ?? 0, note: note ?? null }
+      const entry: Agent = { id, name, commissionRate: commission_rate ?? 0, jpFactor: jp_factor ?? 0, spFactor: sp_factor ?? 0, active: true }
       _mockAgents.push(entry)
       return { id: entry.id, name: entry.name }
     },
-    async update_agent(agent_id: string, name?: string, commission?: number, jp_factor?: number, sp_factor?: number, note?: string) {
+    async update_agent(agent_id: string, name?: string, commission_rate?: number, jp_factor?: number, sp_factor?: number, active?: boolean) {
       const a = _mockAgents.find((x) => x.id === agent_id)
       if (!a) return { error: `Agent ${agent_id} not found.` }
       if (name !== undefined) a.name = name
-      if (commission !== undefined && commission !== null) a.commission = commission
+      if (commission_rate !== undefined && commission_rate !== null) a.commissionRate = commission_rate
       if (jp_factor !== undefined && jp_factor !== null) a.jpFactor = jp_factor
       if (sp_factor !== undefined && sp_factor !== null) a.spFactor = sp_factor
-      if (note !== undefined) a.note = note
+      if (active !== undefined) a.active = active
       return { id: a.id, name: a.name }
     },
     async delete_agent(agent_id: string) {
@@ -281,21 +282,21 @@ function getAPI(): PywebviewAPI {
     async get_all_master_dealers() {
       return [..._mockMasterDealers]
     },
-    async create_master_dealer(id: string, name: string, commission?: number, jp_factor?: number, sp_factor?: number, note?: string) {
+    async create_master_dealer(id: string, name: string, commission_rate?: number, jp_factor?: number, sp_factor?: number) {
       const exists = _mockMasterDealers.find((d) => d.id === id)
       if (exists) return { error: `Master Dealer ${id} already exists.` }
-      const entry: MasterDealer = { id, name, commission: commission ?? 0, jpFactor: jp_factor ?? 0, spFactor: sp_factor ?? 0, note: note ?? null }
+      const entry: MasterDealer = { id, name, commissionRate: commission_rate ?? 0, jpFactor: jp_factor ?? 0, spFactor: sp_factor ?? 0, active: true }
       _mockMasterDealers.push(entry)
       return { id: entry.id, name: entry.name }
     },
-    async update_master_dealer(dealer_id: string, name?: string, commission?: number, jp_factor?: number, sp_factor?: number, note?: string) {
+    async update_master_dealer(dealer_id: string, name?: string, commission_rate?: number, jp_factor?: number, sp_factor?: number, active?: boolean) {
       const d = _mockMasterDealers.find((x) => x.id === dealer_id)
       if (!d) return { error: `Master Dealer ${dealer_id} not found.` }
       if (name !== undefined) d.name = name
-      if (commission !== undefined && commission !== null) d.commission = commission
+      if (commission_rate !== undefined && commission_rate !== null) d.commissionRate = commission_rate
       if (jp_factor !== undefined && jp_factor !== null) d.jpFactor = jp_factor
       if (sp_factor !== undefined && sp_factor !== null) d.spFactor = sp_factor
-      if (note !== undefined) d.note = note
+      if (active !== undefined) d.active = active
       return { id: d.id, name: d.name }
     },
     async delete_master_dealer(dealer_id: string) {
@@ -326,7 +327,7 @@ function getAPI(): PywebviewAPI {
       const sales = _mockSales.filter((s) => s.drawId === draw_id)
       const offloads = _mockOffloads.filter((o) => o.drawId === draw_id)
       const blocked = _mockBlacklist
-        .filter((b) => b.drawId === draw_id && b.type === 'BLOCK')
+        .filter((b) => b.drawId === draw_id && b.restrictionType === 'BLOCK')
         .map((b) => b.ticket)
 
       const ticketMap = new Map<string, { totalSales: number; offloaded: number }>()
@@ -366,18 +367,18 @@ function getAPI(): PywebviewAPI {
       }
     },
 
-    async create_offload(draw_id: number, master_dealer_id: string, entries_json: string, page_no: number, note?: string) {
+    async create_offload(draw_id: number, master_dealer_id: string, entries_json: string, page_no?: string, notes?: string) {
       const entries: Array<{ ticket: string; amount: number }> = JSON.parse(entries_json)
-      const records: Array<{ id: number; ticket: string; amount: number; pageNo: number; masterDealerId: string }> = []
+      const records: Array<{ id: number; ticket: string; amount: number; pageNo: string; masterDealerId: string }> = []
       for (const entry of entries) {
         const record: OffloadRecord = {
           id: _nextOffloadId++,
           drawId: draw_id,
           masterDealerId: master_dealer_id,
-          pageNo: page_no,
+          pageNo: page_no ?? '',
           ticket: entry.ticket,
           amount: entry.amount,
-          note: note ?? null,
+          notes: notes ?? null,
           createdAt: new Date().toISOString(),
         }
         _mockOffloads.push(record)
@@ -425,7 +426,7 @@ function getAPI(): PywebviewAPI {
       for (const [agentId, totalSales] of salesByAgent) {
         const agent = agentMap.get(agentId)
         if (!agent) continue
-        const commission = Math.floor(totalSales * agent.commission / 100)
+        const commission = Math.floor(totalSales * agent.commissionRate / 100)
         const subtotal = totalSales - commission
 
         const wtDetails = winners.map((wt) => {
@@ -434,11 +435,11 @@ function getAPI(): PywebviewAPI {
             .reduce((sum, s) => sum + s.amount, 0)
           if (agentSalesForTicket === 0) return null
           const isHalf = _mockBlacklist.some(
-            (b) => b.drawId === draw_id && b.ticket === wt.ticket && b.type === 'HALF'
+            (b) => b.drawId === draw_id && b.ticket === wt.ticket && b.restrictionType === 'HALF'
           )
-          const factor = wt.type === 'Jackpot' ? agent.jpFactor : agent.spFactor
+          const factor = wt.prizeType === 'JACKPOT' ? agent.jpFactor : agent.spFactor
           const payout = isHalf ? Math.floor(agentSalesForTicket * factor / 2) : agentSalesForTicket * factor
-          return { ticket: wt.ticket, type: wt.type as 'Jackpot' | 'Minor', amount: agentSalesForTicket, payout, isHalfBlacklisted: isHalf }
+          return { ticket: wt.ticket, type: wt.prizeType as string, amount: agentSalesForTicket, payout, isHalfBlacklisted: isHalf }
         }).filter(Boolean) as ReportData['agents'][number]['winningTickets']
 
         const total = subtotal - wtDetails.reduce((sum, d) => sum + d.payout, 0)
@@ -454,7 +455,7 @@ function getAPI(): PywebviewAPI {
       for (const [dealerId, totalOffloaded] of offloadsByDealer) {
         const dealer = dealerMap.get(dealerId)
         if (!dealer) continue
-        const commission = Math.floor(totalOffloaded * dealer.commission / 100)
+        const commission = Math.floor(totalOffloaded * dealer.commissionRate / 100)
         const subtotal = totalOffloaded - commission
 
         const wtDetails = winners.map((wt) => {
@@ -463,11 +464,11 @@ function getAPI(): PywebviewAPI {
             .reduce((sum, o) => sum + o.amount, 0)
           if (dealerOffloadsForTicket === 0) return null
           const isHalf = _mockBlacklist.some(
-            (b) => b.drawId === draw_id && b.ticket === wt.ticket && b.type === 'HALF'
+            (b) => b.drawId === draw_id && b.ticket === wt.ticket && b.restrictionType === 'HALF'
           )
-          const factor = wt.type === 'Jackpot' ? dealer.jpFactor : dealer.spFactor
+          const factor = wt.prizeType === 'JACKPOT' ? dealer.jpFactor : dealer.spFactor
           const payout = isHalf ? Math.floor(dealerOffloadsForTicket * factor / 2) : dealerOffloadsForTicket * factor
-          return { ticket: wt.ticket, type: wt.type as 'Jackpot' | 'Minor', amount: dealerOffloadsForTicket, payout, isHalfBlacklisted: isHalf }
+          return { ticket: wt.ticket, type: wt.prizeType as string, amount: dealerOffloadsForTicket, payout, isHalfBlacklisted: isHalf }
         }).filter(Boolean) as ReportData['dealers'][number]['winningTickets']
 
         const total = subtotal - wtDetails.reduce((sum, d) => sum + d.payout, 0)
@@ -493,7 +494,7 @@ function getAPI(): PywebviewAPI {
         if (adminHeld <= 0) continue
 
         const isHalf = _mockBlacklist.some(
-          (b) => b.drawId === draw_id && b.ticket === wt.ticket && b.type === 'HALF'
+          (b) => b.drawId === draw_id && b.ticket === wt.ticket && b.restrictionType === 'HALF'
         )
 
         const agentSalesMap = new Map<string, number>()
@@ -507,10 +508,10 @@ function getAPI(): PywebviewAPI {
           const prorated = Math.floor((adminHeld * agentSales) / totalTicketSales)
           if (prorated <= 0) continue
 
-          const factor = wt.type === 'Jackpot' ? agent.jpFactor : agent.spFactor
+          const factor = wt.prizeType === 'JACKPOT' ? agent.jpFactor : agent.spFactor
           const payout = isHalf ? Math.floor(prorated * factor / 2) : prorated * factor
 
-          adminWt.push({ ticket: wt.ticket, type: wt.type as 'Jackpot' | 'Minor', amount: prorated, payout, isHalfBlacklisted: isHalf })
+          adminWt.push({ ticket: wt.ticket, type: wt.prizeType as string, amount: prorated, payout, isHalfBlacklisted: isHalf })
         }
       }
 

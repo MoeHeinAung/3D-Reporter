@@ -90,8 +90,8 @@ class API:
 
     def settle_draw(self, draw_id: int) -> dict[str, Any]:
         def _do(s: Any) -> dict[str, Any]:
-            draw = DrawService(s).settle_draw(draw_id)
-            return {"id": draw.id, "status": draw.status}
+            report = ReportService(s).settle_and_persist(draw_id)
+            return {"id": report.draw_id, "status": "SETTLED"}
         return self._with_session(_do)
 
     def get_open_draw(self) -> dict[str, Any] | None:

@@ -6,8 +6,8 @@ from datetime import UTC, datetime
 
 from sqlalchemy.orm import Session
 
-from backend.database.models import Agent
-from backend.errors import NotFoundError
+from backend.database.models import Agent, Batch
+from backend.errors import NotFoundError, ValidationError
 from backend.repositories.agent_repository import AgentRepository
 
 _UNSET = object()
@@ -71,4 +71,10 @@ class AgentService:
         agent = self._repo.get_by_id(agent_id)
         if agent is None:
             raise NotFoundError(f"Agent {agent_id} not found.")
+        batch_count = self.session.query(Batch).filter(Batch.agent_id == agent_id).count()
+        if batch_count > 0:
+            raise ValidationError(
+                f"Cannot delete agent {agent_id}: has {batch_count} existing batch(es). "
+                "Settle all associated draws first."
+            )
         self._repo.delete(agent)

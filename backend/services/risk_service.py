@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timezone
 from typing import Any
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
+
+logger = logging.getLogger(__name__)
 
 
 class RiskService:
@@ -45,11 +48,14 @@ class RiskService:
                 "low": risk_counts.get("LOW", 0),
                 "updatedAt": datetime.now(timezone.utc).isoformat(),
             }
-        except Exception:
+        except Exception as exc:
+            logger.exception("Risk telemetry query failed for draw %s", draw_id)
             return {
                 "critical": 0,
                 "high": 0,
                 "medium": 0,
                 "low": 0,
                 "updatedAt": datetime.now(timezone.utc).isoformat(),
+                "degraded": True,
+                "error": "Telemetry data may be incomplete.",
             }

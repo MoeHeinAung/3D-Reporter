@@ -6,8 +6,8 @@ from datetime import UTC, datetime
 
 from sqlalchemy.orm import Session
 
-from backend.database.models import MasterDealer
-from backend.errors import NotFoundError
+from backend.database.models import MasterDealer, Offloaded
+from backend.errors import NotFoundError, ValidationError
 from backend.repositories.master_dealer_repository import MasterDealerRepository
 
 _UNSET = object()
@@ -71,4 +71,12 @@ class MasterDealerService:
         dealer = self._repo.get_by_id(dealer_id)
         if dealer is None:
             raise NotFoundError(f"Master Dealer {dealer_id} not found.")
+        offload_count = self.session.query(Offloaded).filter(
+            Offloaded.master_dealer_id == dealer_id
+        ).count()
+        if offload_count > 0:
+            raise ValidationError(
+                f"Cannot delete master dealer {dealer_id}: has {offload_count} existing offload(s). "
+                "Settle all associated draws first."
+            )
         self._repo.delete(dealer)

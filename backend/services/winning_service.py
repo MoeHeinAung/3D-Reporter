@@ -19,6 +19,10 @@ class WinningService:
         self._repo = WinningRepository(session)
 
     def create(self, draw_id: int, ticket: str, prize_type: str) -> WinningTicket:
+        if not (ticket.isdigit() and len(ticket) == 3):
+            raise ValidationError(
+                f"Ticket must be exactly 3 numeric digits, got {ticket!r}."
+            )
         if prize_type not in self.VALID_TYPES:
             raise ValidationError(
                 f"Invalid prize type: {prize_type}. Must be JACKPOT or MINOR."

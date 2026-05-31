@@ -25,6 +25,7 @@ export default function Report() {
   }, [])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadDraws()
   }, [loadDraws])
 
@@ -291,7 +292,7 @@ export default function Report() {
             <option value="">-- Select Draw --</option>
             {draws.map((d) => (
               <option key={d.id} value={d.id}>
-                Draw {d.id} — {d.openDate} [{d.status}]
+                Draw {d.id} — {d.drawName} [{d.status}]
               </option>
             ))}
           </select>

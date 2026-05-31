@@ -1,483 +1,536 @@
-# CURRENT TASK — Backend Rebuild from TestingDatabase (2026-05-31)
+# CURRENT TASK — Post-Audit Contract Consolidation & Hardening (2026-05-31)
 
-**Status:** Complete — All 24 tests pass, full business flow verified
-**Source:** `TestingDatabase/testingdatabase.sql` + `TestingDatabase/CalculationWorkflow.md`
+**Status:** In Progress — Phases 1-3 complete (2026-05-31)
+**Source:** `Docs/Finding.md` cross-referenced against current codebase state
 
-## What Changed
+## Context
 
-Rebuilt entire backend to match the TestingDatabase schema — the single source of truth for the lottery domain model:
+A comprehensive read-only audit (`Docs/Finding.md`) identified a fractured domain contract between the backend (Python/SQLAlchemy), the frontend TypeScript types, the mock bridge, and the stale `backend/schema.sql`. The backend was rebuilt from `TestingDatabase` as the authoritative source, but the frontend and `schema.sql` were not updated to match. This plan addresses every verified "Requires Change" finding.
 
-### Schema Changes
-- **Draw:** `draw_name` + `opened_at`/`closed_at`/`settled_at` DATETIME (replaced `open_date`/`cutoff_time` strings)
-- **Agent/MasterDealer:** `commission_rate REAL` (was `commission INTEGER`), `jp_factor REAL`, `sp_factor REAL`, `active` flag, no `note`
-- **Batch:** Added `batch_no TEXT`, `ticket_count`, `closed_at`, `remarks` (was `note`)
-- **Sale:** Only `batch_id` (draw/agent derived from batch); `UNIQUE(batch_id, ticket)` — one ticket per batch
-- **Offloaded:** `page_no TEXT` (was INTEGER), `notes` (was `note`)
-- **BlacklistTicket:** `restriction_type` (was `type`)
-- **WinningTicket:** `prize_type` with JACKPOT/MINOR (was `type` with Jackpot/Minor)
-- **NEW tables:** `draw_ticket_snapshot`, `draw_settlement_agent`, `draw_settlement_master`, `draw_settlement_ticket`, `draw_settlement_summary`
-- **NEW views:** `v_agent_sales_live`, `v_master_exposure_live`, `v_ticket_exposure_live` (with CRITICAL/HIGH/MEDIUM/LOW risk levels)
-- **NEW triggers:** Batch total_amount + ticket_count auto-maintenance on sale insert/update/delete
+**The core problem:** The frontend speaks a different vocabulary than the backend. Parameter names, response keys, and enum values are mismatched. In mock mode (browser dev), everything appears to work. Against the real pywebview backend, draw creation, ticket management, and data display will fail silently or with cryptic errors.
 
-### Report Calculation (from CalculationWorkflow.md)
-- Agent Commission = total_sales × commission_rate / 100 (REAL rate)
-- Agent Payout = amount × factor × half_flag
-- Master Commission = total_offloaded × commission_rate / 100
-- Master Payout = offloaded_amount × master_factor × half_flag
-- Grand Total = subtotal_sales - agent_payout_total - subtotal_offloads + dealer_payout_total
-- Verified against example: -9,963,000 (exact match)
+## Progress (2026-05-31)
 
-### Files Changed (22 files)
-`backend/database/models.py`, `backend/database/connection.py`, `backend/database/views.sql`,
-`backend/repositories/*` (9 files), `backend/services/*` (8 files),
-`backend/api.py`, `tests/test_models.py`, `tests/test_repositories/test_base.py`
+### Completed
+- [x] **Phase 1** — Contract Consolidation (all 11 steps)
+  - schema.sql rewritten to match ORM + settlement tables + views + triggers
+  - api.ts: OpenDrawInfo, BlacklistTicketResult, WinningTicketResult, WinningTicketDetail, SaleRecord, OffloadRecord, OffloadResult updated
+  - domain.ts: All 8 interfaces updated (Agent, MasterDealer, Draw, Batch, Sale, Offloaded, BlacklistTicket, WinningTicket)
+  - bridge.ts: PywebviewAPI interface + mock implementation fully rewritten to match backend
+  - All 6 pages updated: Draws, Partners, Sales, Risk, Report, Dashboard
+  - Verification: zero stale field names, TypeScript 0 errors, Vite build passes
+- [x] **Phase 2.1** — Wired `settle_and_persist` into API.settle_draw() with atomic status transition
+- [x] **Phase 2.2** — Verified settlement is transactional (single commit/rollback boundary)
+- [x] **Phase 3.2** — Added ticket digit validation to BlacklistService and WinningService
+- [x] **Phase 3.3** — Added guard for deleting SETTLED draws
+- [x] **Phase 3.4** — Added guards for deleting agents/dealers with dependent records
+- [x] **Phase 3.5** — Replaced silent risk telemetry fallback with logged error + degraded flag
+- Backend tests: 24/24 passing
+- Frontend build: production build succeeds
 
----
-
-# CURRENT TASK — Frontend Sci-Fi Redesign: "Nexus Terminal"
-
-**Status:** Complete — UI Professional Upgrade Applied (2026-05-31)
-**Started:** 2026-05-29
-**Design Direction:** "Nexus Terminal" — Professional orbital-station command-center aesthetic. Elevated from cyberpunk neon to sophisticated high-definition sci-fi. Think: advanced facility operations terminal, not street-level neon signs.
-
-## Phase 12: UI Professional Upgrade (2026-05-31) — Complete
-
-**Goal:** Refine the "Nexus Terminal" aesthetic from "hacker terminal" to "mission control at a Fortune 500 company" — more polished, premium, and professional while preserving the sci-fi identity.
-
-**Preserved exactly:** Navbar design, card corner accents (bracket mixin), 12×8 CSS grid container.
-
-### Changes:
-- **Color Palette:** Deeper, richer darks (`--color-void: #080C12`), refined cyan (`--color-primary: #00C8E0`), indigo secondary (`#7B8CE0`), new gold warm accent (`#C4A35A`). Glow intensities reduced ~30%.
-- **Typography:** Relaxed h1-h3 tracking to `0.04em`, improved body line-height to `1.5`, reduced telemetry text-shadow, added `.text-body-lg`, `.label-positive`, `.label-warning`.
-- **Animations:** Removed `.glitch-hover` and `.border-chase`. Refined scanline, page-enter, fade-in-up, glow-breathe, digital-ping. Stagger delay adjusted to 60ms.
-- **New CSS Patterns:** `_data-display.scss` (`.stat-group`, `.stat-grid`, `.data-row`, `.status-ring`), `_tables.scss` (shared `.table` class, `.table__cell--*` variants, `.table__empty`, sort indicators).
-- **Cards:** Gradient header/footer borders (60% width), `.card__section` grouping, `.card__header--with-status` variant, compact padding refinement.
-- **Inputs:** Softer shadows, inner highlight, `.btn--secondary` variant, redesigned toggle switch (thinner track, rounded corners), unified double-ring focus.
-- **Pages:** Dashboard uses stat groups + data rows + button descriptions. All pages use unified table classes and empty states. Report has section dividers.
-
-**Files:** 4 commits (`1c47423`, `88c301f`, `4cf62ff`, `88286c0`), 16 files touched (7 new SCSS partials/styles, 2 new SCSS files, 7 page TSX files).
-
-**Verification:** SCSS compile ✓ · TypeScript ✓ · Vite build (53KB CSS, 321KB JS) ✓ · No new ESLint errors ✓
-
-**Spec & Plan:** `docs/superpowers/specs/2026-05-31-ui-professional-upgrade-design.md`, `docs/superpowers/plans/2026-05-31-ui-professional-upgrade-plan.md`
+### Remaining
+- [ ] **Phase 2.3** — Settlement tests (test_report_service.py)
+- [ ] **Phase 3.1** — Zero-sale semantics decision (needs stakeholder input)
+- [ ] **Phase 3.6** — Database-level ticket CHECK constraints
+- [ ] **Phase 4** — Calculation verification tests from CalculationWorkflow.md
+- [ ] **Phase 5** — Frontend quality (lint fixes, shared components, confirmation dialogs)
+- [ ] **Phase 6** — UI/UX polish (SCSS migration, accessibility)
 
 ---
 
-## Constraints (Hard)
+## Phase 1 — Contract Consolidation (P0)
 
-- **DO NOT** modify the existing 12×8 CSS grid layout (`_grid.scss`, `.main-content`, grid dimensions, gap, padding)
-- **DO NOT** alter the center division of the navigation bar (trapezoid shape, left/right link sections, overall navbar structure)
-- **ALL changes** are limited to: typography, color palettes, component styling, shadows, borders, interactive states
-- No new npm dependencies
+**Goal:** Make the frontend types, bridge signatures, mock implementation, page components, and `schema.sql` all speak the same vocabulary as the backend API.
+
+### Step 1.1 — Rewrite `backend/schema.sql` to match the ORM
+
+**File:** `backend/schema.sql`
+
+Replace the entire file with DDL that exactly mirrors the SQLAlchemy ORM models (`backend/database/models.py`) and `TestingDatabase/testingdatabase.sql`. This file is labeled "Reference DDL (documentation only)" in CLAUDE.md but currently contradicts the running schema on every table.
+
+Changes per table:
+- `draws`: `draw_name`, `opened_at`, `closed_at`, `settled_at`, `notes`, `house_holding_amount` (remove `open_date`, `cutoff_time`, `note`, `created_at`)
+- `agents`: `commission_rate REAL`, `jp_factor REAL`, `sp_factor REAL`, `active INTEGER DEFAULT 1` (remove `commission INTEGER`, `note`; add `active`)
+- `master_dealers`: same pattern as agents
+- `batches`: add `batch_no TEXT NOT NULL`, `ticket_count INTEGER DEFAULT 0`, `closed_at DATETIME`, `remarks` (remove `note`)
+- `sales`: `amount >= 0`, `UNIQUE(batch_id, ticket)`, NO denormalized `draw_id`/`agent_id` (remove `amount > 0`, add unique constraint)
+- `blacklist_tickets`: `restriction_type` IN (`HALF`,`BLOCK`) (was `type`), `CHECK(length(ticket)=3)`, `UNIQUE(draw_id, ticket)`
+- `winning_tickets`: `prize_type` IN (`JACKPOT`,`MINOR`) (was `type` with `Jackpot`,`Minor`), `CHECK(length(ticket)=3)`, `UNIQUE(draw_id, ticket)`
+- `offloaded`: `page_no TEXT`, `notes` (was `note`)
+- Add the 5 new settlement tables: `draw_ticket_snapshot`, `draw_settlement_agent`, `draw_settlement_master`, `draw_settlement_ticket`, `draw_settlement_summary`
+- Add the 3 new views: `v_agent_sales_live`, `v_master_exposure_live`, `v_ticket_exposure_live`
+- Replace trigger section with only the 3 batch-maintenance triggers that match `connection.py`
+- Add header comment: "Reference DDL — matches SQLAlchemy ORM. The ORM is authoritative. This file is for documentation only."
+
+### Step 1.2 — Update frontend API types to match backend response shapes
+
+**File:** `frontend/src/types/api.ts`
+
+Replace each type with the exact shape the backend returns:
+
+```typescript
+// Draw list/get response — matches backend get_draw/get_all_draws/get_open_draw
+export interface OpenDrawInfo {
+  id: number
+  drawName: string
+  status: string
+  houseHoldingAmount: number
+  openedAt: string | null
+  closedAt: string | null
+  settledAt: string | null
+  notes: string | null
+}
+
+// Blacklist ticket — matches backend get_blacklist_tickets/create_blacklist_ticket
+export interface BlacklistTicketResult {
+  id: number
+  drawId: number
+  ticket: string
+  restrictionType: string   // was "type"
+}
+
+// Winning ticket — matches backend get_winning_tickets/create_winning_ticket
+export interface WinningTicketResult {
+  id: number
+  drawId: number
+  ticket: string
+  prizeType: string          // was "type"
+}
+
+// Agent/MasterDealer list — matches backend get_all_agents/get_all_master_dealers
+// (Agent and MasterDealer are in domain.ts — update there)
+```
+
+Also update `WinningTicketDetail.type` from `'Jackpot' | 'Minor'` to `string` (backend returns `'JACKPOT' | 'MINOR'`).
+
+### Step 1.3 — Update domain types to match backend
+
+**File:** `frontend/src/types/domain.ts`
+
+- **Agent:** `commission` → `commissionRate: number`; add `active: boolean`; remove `note`
+- **MasterDealer:** same as Agent
+- **Draw:** `openDate` → `drawName`; `cutoffTime` → remove, add `openedAt`, `closedAt`, `settledAt`; `note` → `notes`; keep `id`, `status`, `houseHoldingAmount`
+- **BlacklistTicket:** `type` → `restrictionType`; add `drawId`; values `'HALF' | 'BLOCK'` stay
+- **WinningTicket:** `type` → `prizeType`; add `drawId`; values change to `'JACKPOT' | 'MINOR'`
+- **Batch:** `note` → `remarks`; add `batchNo`, `ticketCount`, `closedAt`; remove `totalAmount`
+- **Sale:** remove `note` if backend doesn't return it (check: sale has no note field in TD)
+- **Offloaded:** `note` → `notes`
+- Remove dead types that are not consumed anywhere: `Offloaded` (domain.ts), `Draw` (if superseded by `OpenDrawInfo`), `Sale`, `Batch`
+
+### Step 1.4 — Rewrite bridge interface and mock to match backend exactly
+
+**File:** `frontend/src/api/bridge.ts`
+
+**Interface changes (`PywebviewAPI`):**
+
+| Method | Old signature | New signature |
+|--------|--------------|---------------|
+| `open_draw` | `(open_date, cutoff_time, house_holding_amount?, note?)` | `(draw_name, house_holding_amount?, notes?)` |
+| `update_draw` | `(draw_id, open_date?, cutoff_time?, house_holding_amount?, note?)` | `(draw_id, draw_name?, house_holding_amount?, notes?)` |
+| `create_agent` | `(id, name, commission?, jp_factor?, sp_factor?, note?)` | `(id, name, commission_rate?, jp_factor?, sp_factor?)` |
+| `update_agent` | `(agent_id, name?, commission?, jp_factor?, sp_factor?, note?)` | `(agent_id, name?, commission_rate?, jp_factor?, sp_factor?, active?)` |
+| `create_master_dealer` | same pattern | same pattern as agent |
+| `update_master_dealer` | same pattern | same pattern as agent |
+| `get_all_agents` | returns `Agent[]` | returns updated `Agent[]` (commissionRate, active, no note) |
+| `get_all_master_dealers` | returns `MasterDealer[]` | returns updated `MasterDealer[]` |
+
+**Mock implementation changes:**
+- `open_draw`: accept `(draw_name, house_holding_amount?, notes?)`, store `drawName`/`notes` on the mock draw object, auto-set `openedAt` to now
+- `update_draw`: accept `(draw_id, draw_name?, house_holding_amount?, notes?)`, update `drawName`/`notes`
+- `create_agent`/`update_agent`: store and return `commissionRate`, `active`; drop `note`
+- `create_master_dealer`/`update_master_dealer`: same
+- `get_all_agents`/`get_all_master_dealers`: return shapes with `commissionRate`, `active`, no `note`
+- `get_all_draws`/`get_draw`/`get_open_draw`: return `drawName`, `openedAt`, `closedAt`, `settledAt`, `notes` (NOT `openDate`, `cutoffTime`, `note`)
+- `create_blacklist_ticket`: return `{ id, drawId, ticket, restrictionType }` (NOT `type`)
+- `create_winning_ticket`: return `{ id, drawId, ticket, prizeType }` (NOT `type`)
+- `get_blacklist_tickets`: return `{ id, drawId, ticket, restrictionType }[]`
+- `get_winning_tickets`: return `{ id, drawId, ticket, prizeType }[]`
+- `generate_report`: use `prizeType` values `'JACKPOT'`/`'MINOR'` in winning ticket details
+
+### Step 1.5 — Update Draws page to use new contract
+
+**File:** `frontend/src/pages/Draws.tsx`
+
+- Form state: `{ openDate, cutoffTime, houseHoldingAmount, note }` → `{ drawName, houseHoldingAmount, notes }`
+- Form labels: "Open Date" → "Draw Name", remove "Cutoff Time" field, "Note" → "Notes"
+- `handleDrawFormSubmit`: call `api.open_draw(drawName, houseHoldingAmount, notes || undefined)` (3 args, not 4)
+- `handleDrawFormSubmit` (edit): call `api.update_draw(editingDrawId, drawName, houseHoldingAmount, notes || undefined)`
+- Draw list display: `d.openDate` → `d.drawName`; `d.cutoffTime` → show `d.openedAt`/`d.closedAt`/`d.settledAt` as appropriate; `d.note` → `d.notes`
+- Ticket tab: `ticketForm.type` values change from `'Jackpot'`/`'Minor'` → `'JACKPOT'`/`'MINOR'`
+- Ticket display: `t.type` → `t.restrictionType` (blacklist) or `t.prizeType` (winning)
+- Ticket form select options: `'Jackpot'` → `'JACKPOT'`, `'Minor'` → `'MINOR'`
+- `create_blacklist_ticket` call uses `ticketForm.type` — param name `ticket_type` in bridge, maps to `restriction_type` in backend
+- `create_winning_ticket` call uses `ticketForm.type` — param name `ticket_type` in bridge, maps to `prize_type` in backend
+
+### Step 1.6 — Update Partners page to use new contract
+
+**File:** `frontend/src/pages/Partners.tsx`
+
+- Agent form: `commission` → `commissionRate`; add `active` toggle; remove `note`
+- Agent display: `a.commission` → `a.commissionRate`; show `a.active` status
+- Master dealer form: same pattern
+- `create_agent` call: remove `note` param; use `commission_rate` param name
+- `update_agent` call: remove `note`; add `active` param; use `commission_rate` param name
+
+### Step 1.7 — Update Sales page to use new contract
+
+**File:** `frontend/src/pages/Sales.tsx`
+
+- Draw reference: `openDraw?.openDate` → `openDraw?.drawName`
+- Any `cutoffTime` references → remove or replace with `closedAt`
+- Agent references: `commission` → `commissionRate`
+- Batch display: `note` → `remarks` if applicable
+
+### Step 1.8 — Update Risk page to use new contract
+
+**File:** `frontend/src/pages/Risk.tsx`
+
+- Draw reference: `openDraw?.openDate` → `openDraw?.drawName`
+- Any `cutoffTime` references → remove or replace with `closedAt`
+- Ticket risk display: check for `t.type` → appropriate field per context
+
+### Step 1.9 — Update Report page to use new contract
+
+**File:** `frontend/src/pages/Report.tsx`
+
+- Winning ticket display: `wt.type` values are now `'JACKPOT'`/`'MINOR'` (uppercase) — update any conditional logic that checks for `'Jackpot'`/`'Minor'`
+- All 7 references to `wt.type` in the report rendering (lines 130, 183, 240, 393, 449, 512) remain structurally correct but will now display uppercase values — consider a display formatter
+- Agent/dealer line references: `commission` → `commissionRate`
+
+### Step 1.10 — Update Dashboard page to use new contract
+
+**File:** `frontend/src/pages/Dashboard.tsx`
+
+- Check all draw/agent/dealer references for stale field names
+- Update any `openDate`, `cutoffTime`, `commission`, `note`, `type` references
+
+### Step 1.11 — Verify no stale field names remain in frontend
+
+Run a global grep across `frontend/src` (excluding `node_modules`) for each stale field name and confirm zero remaining references:
+- `openDate` (as a property access on draw objects — form local state names are fine)
+- `cutoffTime`
+- `.commission` (on agent/dealer objects, not computed variables)
+- `.note` (on draw/agent objects where backend returns `notes`)
+- `.type` (on blacklist/winning ticket objects — should be `.restrictionType`/`.prizeType`)
+- `'Jackpot'` or `'Minor'` as literal values (should be `'JACKPOT'`/`'MINOR'`)
 
 ---
 
-## Phase 1: Color Palette & Design Tokens (1 file)
+## Phase 2 — Settlement Integrity (P0)
 
-**File:** `frontend/src/styles/abstracts/_tokens.scss`
+**Goal:** Make draw settlement atomically persist settlement records and transition status.
 
-### Task 1.1 — Evolve the dark palette
+### Step 2.1 — Wire `settle_and_persist` into the API
 
-Replace flat dark colors with deeper, layered space tones that have subtle blue undertones.
+**File:** `backend/api.py` (lines 91-95)
 
-```
---color-void:       #060B0F    (was #0d1516) — deeper space black with blue undertone
---color-obsidian:   #080F1A    (was #0A1525) — richer deep navy
---color-primary:    #00E5FF    (was #00F0FF) — slightly warmer cyan, better readability
---color-secondary:  #A855F7    (was #8A2BE2) — brighter violet, more neon presence
---color-error:      #FF3366    (was #FF0055) — slightly softer red, better on eyes
---color-border:     #1E2A3A    (was #2D323E) — deeper, bluer steel
-```
-
-### Task 1.2 — Add tertiary accent colors
-
-Add new custom properties for a richer palette:
-```
---color-success:    #00E676    — emerald green for confirmations/healthy status
---color-warning:    #F59E0B    — amber for warnings/caution states
---color-info:       #38BDF8    — sky blue for informational elements
+Replace:
+```python
+def settle_draw(self, draw_id: int) -> dict[str, Any]:
+    def _do(s: Any) -> dict[str, Any]:
+        draw = DrawService(s).settle_draw(draw_id)
+        return {"id": draw.id, "status": draw.status}
+    return self._with_session(_do)
 ```
 
-### Task 1.3 — Enhance derived UI roles
-
-```
---color-bg-elevated:      #0D1520    (was #1A1D26) — deeper, bluer elevated surface
---color-text-primary:     #EDF2F7    (was #E8ECF1) — slightly brighter white
---color-text-secondary:   #7B8BA3    (was #8892A4) — bluer grey
---color-text-muted:       #4A5568    (was #545D6E) — deeper muted
---color-accent-glow:      rgba(0, 229, 255, 0.4)    (was 0.35)
---color-error-glow:       rgba(255, 51, 102, 0.4)   (was 0.35)
---color-glass-bg:         rgba(8, 15, 26, 0.75)     (was rgba(20,22,28,0.7))
---color-glass-border:     rgba(255, 255, 255, 0.06)  (was 0.08) — subtler glass edge
+With:
+```python
+def settle_draw(self, draw_id: int) -> dict[str, Any]:
+    def _do(s: Any) -> dict[str, Any]:
+        report = ReportService(s).settle_and_persist(draw_id)
+        return {"id": report["drawId"], "status": "SETTLED"}
+    return self._with_session(_do)
 ```
 
-### Task 1.4 — Add multi-layered shadow tokens
+### Step 2.2 — Verify `settle_and_persist` is transactional
 
-Replace the single-neon shadows with layered glows for depth:
-```
---shadow-neon-primary:   0 0 4px rgba(0, 229, 255, 0.6), 0 0 12px rgba(0, 229, 255, 0.3), 0 0 30px rgba(0, 229, 255, 0.1)
---shadow-neon-secondary: 0 0 4px rgba(168, 85, 247, 0.6), 0 0 12px rgba(168, 85, 247, 0.3), 0 0 30px rgba(168, 85, 247, 0.1)
---shadow-neon-error:     0 0 4px rgba(255, 51, 102, 0.6), 0 0 12px rgba(255, 51, 102, 0.3), 0 0 30px rgba(255, 51, 102, 0.1)
---shadow-surface:        0 2px 16px rgba(0, 0, 0, 0.5), 0 8px 40px rgba(0, 0, 0, 0.3)
---shadow-inner-glow:     inset 0 1px 0 rgba(255, 255, 255, 0.04)
-```
+**File:** `backend/services/report_service.py`
 
-### Task 1.5 — Add new token categories
+Review `settle_and_persist()` (line 165) to ensure:
+- Settlement records, snapshots, and status transition happen in one transaction
+- If any step fails, the entire settlement rolls back
+- The session's `commit()` is called only after all inserts succeed
 
-```
---color-navbar-bg: rgba(4, 8, 16, 0.92)  — darker navbar for contrast
---color-table-stripe: rgba(0, 229, 255, 0.02)  — subtle stripe for data tables
---color-table-hover: rgba(0, 229, 255, 0.05)   — row hover highlight
---color-border-glow: rgba(0, 229, 255, 0.15)   — subtle border illumination
-```
+If the method currently commits incrementally, refactor to use a single atomic block.
 
-### Task 1.6 — Update light mode equivalents
+### Step 2.3 — Add settlement tests
 
-Mirror all dark-mode token changes to the `[data-theme="light"]` and `@media (prefers-color-scheme: light)` blocks with appropriate light-mode values (softer, less neon, but still sci-fi).
+**File:** `tests/test_services/test_report_service.py` (new file)
+
+- Test: settling an open draw with sales produces correct `draw_settlement_*` records
+- Test: settling an already-settled draw raises an error
+- Test: settling a draw with no sales produces empty settlement records
+- Test: settlement records match the live calculation from `generate_report()`
 
 ---
 
-## Phase 2: Typography Overhaul (2 files)
+## Phase 3 — Business Rule Hardening (P1)
 
-**Files:** `frontend/src/styles/base/_typography.scss`, `frontend/src/styles/abstracts/_tokens.scss`
+**Goal:** Close gaps in validation, add missing guards, fix silent error swallowing.
 
-### Task 2.1 — Add text glow utilities
+### Step 3.1 — Decide and enforce zero-sale semantics
 
-New utility classes for HUD text glow effects:
-```scss
-.text-glow-primary { text-shadow: 0 0 8px rgba(0, 229, 255, 0.5); }
-.text-glow-secondary { text-shadow: 0 0 8px rgba(168, 85, 247, 0.5); }
-.text-glow-error { text-shadow: 0 0 8px rgba(255, 51, 102, 0.5); }
+If zero IS intentional (current behavior):
+- Add a docstring to `SalesService.record_sale()` documenting that zero-amount sales are valid (e.g., "placeholder entry")
+- Add a comment in `TestingDatabase/testingdatabase.sql` explaining the `>= 0` constraint
+- In report/risk queries, consider whether zero-amount rows should be excluded from counts
+
+If zero should NOT be allowed:
+- Change `SalesService.record_sale()` validation to `if amount <= 0`
+- Change the ORM check constraint in `models.py` to `amount > 0`
+- Change `TestingDatabase/testingdatabase.sql` to `CHECK(amount > 0)`
+- Add a test verifying zero-amount sales are rejected
+
+**Decision needed from stakeholder before implementing.**
+
+### Step 3.2 — Add ticket digit validation to BlacklistService and WinningService
+
+**File:** `backend/services/blacklist_service.py` (line 21)
+**File:** `backend/services/winning_service.py` (line 21)
+
+Add the same validation that `SalesService.record_sale()` already has:
+```python
+if not (ticket.isdigit() and len(ticket) == 3):
+    raise ValidationError(f"Ticket must be exactly 3 numeric digits, got {ticket!r}.")
 ```
 
-### Task 2.2 — Enhance heading hierarchy
+Place it before the existing type validation in both `create()` methods.
 
-- Increase `--tracking-heading` from `0.05em` to `0.08em` for more spaced-out HUD feel
-- Add a `.hud-label` class: Tektur, condensed width (font-stretch: 75%), uppercase, 0.12em tracking — for compact data labels
-- Add a `.hud-value` class: JetBrains Mono, tabular-nums, with subtle text-shadow glow
-- Make `.telemetry` class use `text-shadow: 0 0 4px rgba(0, 229, 255, 0.3)` for illuminated data
+### Step 3.3 — Add guard for deleting settled/non-empty draws
 
-### Task 2.3 — Improve font rendering
+**File:** `backend/services/draw_service.py` (line 104)
 
-- Add `font-feature-settings: "calt" 0, "liga" 0` to mono for cleaner numeric display
-- Add `text-rendering: optimizeLegibility` to heading elements
-- Set `font-variant-numeric: tabular-nums slashed-zero` on `.telemetry` for better number differentiation
-
-### Task 2.4 — Add type scale for data displays
-
-```scss
-.data-xxs { font-size: 0.56rem; }  // tiny metadata
-.data-xxl { font-size: 4.5rem; }    // large dashboard metrics
+In `delete_draw()`, add after the existence check:
+```python
+if draw.status == "SETTLED":
+    raise ValidationError(f"Cannot delete settled draw {draw_id}.")
 ```
 
----
-
-## Phase 3: Component Styling — Cards & Panels (2 files)
-
-**Files:** `frontend/src/styles/components/_card.scss`, `frontend/src/styles/abstracts/_mixins.scss`
-
-### Task 3.1 — Enhanced glass panel mixin
-
-Upgrade `glass-panel-themed` with multi-layer glass effect:
-- Add a subtle inner highlight (top edge light catch) via `box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06)`
-- Increase backdrop-filter blur to `16px` (was 12px)
-- Add subtle border glow: `border-color` transitions on hover to `var(--color-border-glow)`
-
-### Task 3.2 — Upgrade corner accents
-
-- Increase bracket size from 48px to 56px for more presence
-- Add subtle animated glow to brackets: `filter: drop-shadow(0 0 3px currentColor)` via a CSS animation that pulses opacity
-- Add a new `corner-accent-elite` mixin with thinner lines (1px) and longer reach (64px) for premium panels
-
-### Task 3.3 — Card surface enhancements
-
-- Add `background-image` with subtle noise/grain texture overlay (via tiny data URI or CSS gradient noise) for depth
-- Increase the hologram radial glow intensity slightly
-- Add `transition` on `border-color` and `box-shadow` for subtle hover feedback
-- Card header: add a subtle gradient underline instead of solid border
-
-### Task 3.4 — Card variants polish
-
-- `.card--active`: enhanced multi-layer glow, subtle border animation
-- `.card--risk`: amber warning tint (was pure error red), as risk isn't always critical
-- New `.card--success`: emerald green accent for confirmation states
-- New `.card--highlight`: violet secondary accent for featured panels
-
----
-
-## Phase 4: Component Styling — Buttons & Inputs (2 files)
-
-**Files:** `frontend/src/styles/components/_inputs.scss`, `frontend/src/styles/abstracts/_mixins.scss`
-
-### Task 4.1 — Button redesign
-
-- Sharper button edges: remove any implicit rounding, use `border-radius: 0` explicitly
-- Add subtle inner highlight to all buttons: `box-shadow: inset 0 1px 0 rgba(255,255,255,0.05)`
-- `.btn--primary`: deeper cyan fill, white/void text with better contrast. Add scale(1.02) on hover with glow expansion
-- `.btn--special`: enhance the gradient swipe animation — make it a 135deg sweep, add a subtle scale pulse on completion
-- `.btn--danger`: deeper red, add subtle shake animation on extreme cases
-- New `.btn--ghost`: transparent with subtle border, for secondary actions
-- Add `:active` state with `translateY(1px)` for physical press feel
-
-### Task 4.2 — Input field enhancements
-
-- Add subtle inner shadow to inputs for recessed feel: `box-shadow: inset 0 1px 3px rgba(0,0,0,0.3)`
-- Focus state: expand glow ring, add border-color transition with slight delay for "charging" feel
-- Placeholder text: use `var(--color-text-muted)` with 50% opacity
-- `.input--error`: add subtle red inner glow
-- Select dropdown: custom dropdown arrow in cyan
-
-### Task 4.3 — Checkbox & toggle upgrades
-
-- Style native checkboxes with custom appearance (cyan checkmark on dark bg)
-- `.toggle`: add glow to active track, smoother thumb transition with `cubic-bezier(0.34, 1.56, 0.64, 1)` (slight overshoot)
-- Add focus-visible ring with glow to toggles
-
-### Task 4.4 — Scrollbar theming
-
-- Thinner scrollbar: 4px (was 6px)
-- Thumb color: `var(--color-primary)` at 20% opacity, 40% on hover
-- Rounder thumb: 2px radius
-
----
-
-## Phase 5: Component Styling — Navigation Bar Polish (1 file)
-
-**File:** `frontend/src/styles/components/_navbar.scss`
-
-### Task 5.1 — Navbar background upgrade
-
-- Darker frosted glass: `rgba(4, 8, 16, 0.92)` with 16px blur
-- Add subtle bottom edge glow: `box-shadow: 0 1px 0 rgba(0, 229, 255, 0.08)`
-
-### Task 5.2 — Nav link enhancements
-
-- Increase letter-spacing to 0.12em (was 0.1em) for more deliberate HUD feel
-- Active link: cyan text with text-shadow glow, 2px bottom border with blur
-- Hover: color transition with slight text-shadow bloom
-- Add subtle separator dots between nav links (small cyan dot via `::after` on non-last links)
-
-### Task 5.3 — Trapezoid center piece polish
-
-- Increase bottom glow line intensity: thicker box-shadow with wider spread
-- Text: increase letter-spacing to 5px (was 4px), stronger drop-shadow
-- Add subtle inner gradient to trapezoid background for depth
-
-### Task 5.4 — Status indicator animation
-
-- Add subtle breathing animation to the status dot (2s pulse cycle)
-- Green/emerald for healthy, amber for warning, red for critical
-
----
-
-## Phase 6: Component Styling — Data Tables & Lists (1 file)
-
-**File:** `frontend/src/styles/components/_draws.scss`
-
-### Task 6.1 — Table styling upgrade
-
-- Header row: darker background, cyan bottom border (2px) instead of 1px muted
-- Data rows: subtle striping with `var(--color-table-stripe)` on even rows
-- Row hover: cyan tint with left-edge accent bar (2px)
-- Cell padding: increase slightly for better readability
-- Sticky header: add backdrop-blur for glass effect when scrolled
-
-### Task 6.2 — List item enhancements
-
-- Active list item: stronger left-border glow (3px cyan with blur), slightly brighter background
-- Hover: smooth background transition with subtle slide-in of left accent
-- Item actions: fade in with slight slide from right (transform + opacity)
-
-### Task 6.3 — Badge redesign
-
-- Sharper edges, more vibrant fills
-- Add subtle inner glow to badges
-- Open badge: cyan with 15% fill
-- Closed badge: amber/gold with 15% fill (was a hardcoded #F0A500)
-- Settled badge: muted with no glow
-- Ticket badge: violet secondary with 15% fill
-
-### Task 6.4 — Modal polish
-
-- Stronger backdrop blur (8px, was 4px)
-- Modal panel: multi-layer shadow with primary glow ring
-- Header: subtle gradient underline
-- Body: increased gap for breathing room
-- Add entrance animation: `fade-in-up` with slight scale
-
----
-
-## Phase 7: Component Styling — Background & Grid Overlay (2 files)
-
-**Files:** `frontend/src/styles/base/_reset.scss`, `frontend/src/styles/components/_background.scss`
-
-### Task 7.1 — Background grid upgrade
-
-- Finer grid lines: `--grid-cell-size: 24px` (was 32px) for higher-density cyberspace feel
-- Grid line color: `rgba(0, 229, 255, 0.04)` (was 0.05) for subtlety
-- Add secondary larger grid every 4 cells at slightly higher opacity (0.06) for hierarchy
-
-### Task 7.2 — Grid overlay enhancement
-
-- Cells: slightly reduced opacity (15% was 20%) for subtlety
-- Add subtle hex-dot pattern at cell intersections (via radial-gradient)
-- Consider adding a vignette effect to the main content area (radial gradient at edges)
-
-### Task 7.3 — Selection & focus polish
-
-- Selection highlight: cyan at 20% (was 25%)
-- Focus-visible: cyan ring with 4px blur glow
-- Add smooth transitions to focus state changes
-
----
-
-## Phase 8: Animations & Micro-interactions (1 file)
-
-**File:** `frontend/src/styles/components/_animations.scss`
-
-### Task 8.1 — New animations
-
-```scss
-// Border chase — animated border "circuit trace" effect
-@keyframes border-chase { ... }  // travels around element perimeter
-
-// Glow breathe — subtle pulsing glow for active/processing states
-@keyframes glow-breathe { ... }  // 3s cycle, subtle opacity oscillation
-
-// Data stream — vertical line particles for loading
-@keyframes data-stream { ... }
-
-// Ripple — click feedback expanding ring
-@keyframes ripple { ... }
+Optionally check for dependent sales/offloads and provide a clear error:
+```python
+sale_count = self._sale_repo.count_by_draw(draw_id)  # if this method exists
+if sale_count > 0:
+    raise ValidationError(f"Cannot delete draw {draw_id} with {sale_count} existing sales.")
 ```
 
-### Task 8.2 — Enhance existing animations
+If a `count_by_draw` method doesn't exist on `SaleRepository`, either add it or catch the `IntegrityError` from the DB and re-raise as a `ValidationError` with a user-friendly message.
 
-- `scanline`: faster (2s was 3s), narrower beam, slightly brighter at peak
-- `pulse-hologram`: subtler range (0.95 to 1.0, was 0.85 to 1.0)
-- `digital-ping`: add slight rotation (0.5deg) for more physical feel
-- `glitch`: add color-shift (RGB split) for more authentic glitch effect on critical elements
-- `fade-in-up`: add slight scale from 0.98 for smoother entrance
+### Step 3.4 — Add guard for deleting agents/dealers with dependent records
 
-### Task 8.3 — Page transition animations
+**File:** `backend/services/agent_service.py`
+**File:** `backend/services/master_dealer_service.py`
 
-- Add staggered card entrance animation classes
-- Add route transition fade effect
+In `delete()`, check for dependent batches/sales/offloads before deleting. If foreign keys would block the delete, catch the `IntegrityError` and re-raise with a clear message.
 
----
+### Step 3.5 — Fix silent risk telemetry fallback
 
-## Phase 9: Inline Styles Cleanup in TSX (5 files)
+**File:** `backend/services/risk_service.py` (line 48)
 
-**Files:** `frontend/src/pages/Dashboard.tsx`, `frontend/src/pages/Risk.tsx`, `frontend/src/pages/Sales.tsx`, `frontend/src/pages/Draws.tsx`, `frontend/src/pages/Partners.tsx`
-
-### Task 9.1 — Replace hardcoded colors with CSS variables
-
-Audit all inline styles in page components. Replace any hardcoded hex colors (like `#f0a020`, `#8A2BE2`, `#00F0FF`, `#FF0055`, `#e0e0e0`, `#b0b0b0`, `#666`, `#a080d0`, `#b080e0`, `#0A0B0E`, `#ccc`) with the appropriate CSS custom property references.
-
-### Task 9.2 — Replace inline font references
-
-Where pages reference font families directly (e.g., `fontFamily: 'JetBrains Mono'`), replace with CSS variable references (`var(--font-mono)`) or utility classes.
-
-### Task 9.3 — Add missing utility class usage
-
-Where inline styles repeat patterns, extract to utility classes or SCSS component classes.
-
----
-
-## Phase 10: Report Page Theming (1 file)
-
-**File:** `frontend/src/styles/components/_report.scss`
-
-### Task 10.1 — Replace hardcoded colors
-
-Full audit of `_report.scss` — replace ALL hardcoded hex values with token references:
-- `#00F0FF` → `var(--color-primary)`
-- `#2D323E` → `var(--color-border)`
-- `#8A2BE2` → `var(--color-secondary)`
-- `#FF0055` → `var(--color-error)`
-- `#b0b0b0`, `#e0e0e0`, `#666`, `#ccc`, `#0A0B0E`, `#a080d0`, `#b080e0` → appropriate token refs
-- `rgba(20, 22, 28, 0.3)` → `var(--color-glass-bg)`
-
-### Task 10.2 — Enhance report section styling
-
-- Section titles: add subtle text glow
-- Party cards: stronger glass effect, sharper borders
-- Financial tables: better number alignment, monospaced digits
-- Total rows: multi-layer text glow
-- Winning ticket rows: distinctive violet accent with subtle background tint
-
----
-
-## Phase 11: Verification & Polish Pass
-
-### Task 11.1 — Visual consistency audit
-
-- Verify all pages use the same token system (no hardcoded colors remain)
-- Check contrast ratios for accessibility (WCAG AA minimum for text)
-- Verify light mode renders correctly with all new tokens
-- Check reduced-motion media query still disables animations
-
-### Task 11.2 — Build verification
-
-```bash
-cd frontend && npx tsc --noEmit   # Type check
-cd frontend && npm run lint        # Lint
-cd frontend && npm run build       # Production build
+Replace:
+```python
+except Exception:
+    return {"critical": 0, "high": 0, "medium": 0, "low": 0, ...}
 ```
+
+With:
+```python
+except Exception as exc:
+    logger.exception("Risk telemetry query failed for draw %s", draw_id)
+    return {
+        "critical": 0, "high": 0, "medium": 0, "low": 0,
+        "updatedAt": datetime.now(timezone.utc).isoformat(),
+        "degraded": True,
+        "error": "Telemetry data may be incomplete.",
+    }
+```
+
+Then update the frontend `RiskTelemetry` type to include the optional `degraded` and `error` fields, and display a warning banner in the Risk page when telemetry is degraded.
+
+### Step 3.6 — Add database-level CHECK for ticket digit format
+
+**File:** `backend/database/models.py`
+
+On `Sale.ticket`, `BlacklistTicket.ticket`, and `WinningTicket.ticket`, strengthen the existing `CheckConstraint("length(ticket)=3")` to also enforce numeric content. In SQLite, this needs to be done carefully — SQLite CHECK constraints don't support regex, but we can use:
+
+```python
+CheckConstraint(
+    "length(ticket) = 3 AND CAST(ticket AS INTEGER) BETWEEN 0 AND 999",
+    name="ck_ticket_numeric"
+)
+```
+
+Or alternatively, rely on the service-layer validation (which will be consistent after Step 3.2) and keep the DB constraint as length-only.
+
+**Decision:** Service-layer validation is sufficient if direct DB access is never used. Adding complex CHECK constraints adds maintenance burden. Prefer service-layer enforcement unless there's a specific direct-DB risk.
+
+---
+
+## Phase 4 — Calculation Verification (P1)
+
+**Goal:** Prove the report math is correct by encoding the `CalculationWorkflow.md` example as automated tests.
+
+### Step 4.1 — Create calculation workflow test
+
+**File:** `tests/test_services/test_report_service.py`
+
+Use the worked example from `TestingDatabase/CalculationWorkflow.md`:
+- Set up agents, master dealers, draws, batches, sales, offloads, blacklist tickets, and winning tickets matching the example
+- Call `ReportService.generate_report(draw_id)`
+- Assert:
+  - Agent commission = `total_sales × commission_rate / 100`
+  - Agent payout = `amount × factor × half_flag`
+  - Agent line total = `subtotal - total_payout`
+  - Master dealer commission = `total_offloaded × commission_rate / 100`
+  - Master payout = `offloaded_amount × master_factor × half_flag`
+  - Admin grand total matches the documented example: `-9,963,000`
+- Test both "some winners" and "no winners" scenarios
+- Test the half-blacklist flag halves the payout
+
+### Step 4.2 — Verify `settle_and_persist` output matches `generate_report`
+
+**File:** `tests/test_services/test_report_service.py`
+
+- Set up identical data
+- Call `generate_report()` and `settle_and_persist()` separately
+- Assert that the settlement summary records match the live report numbers
+
+---
+
+## Phase 5 — Frontend Quality (P2)
+
+**Goal:** Fix lint failures, extract shared components, add robust states.
+
+### Step 5.1 — Fix ESLint failures
+
+Run `cd frontend && npm run lint` to get the current error count and list. Fix each error:
+
+- `react-hooks/set-state-in-effect`: Review each instance in Draws, Partners, Report, Sales, Risk pages. Restructure to avoid setting state inside effects where possible, or add proper dependency arrays.
+- `no-useless-escape`: Remove unnecessary escape characters.
+
+Target: **zero lint errors**.
+
+### Step 5.2 — Extract shared table component
+
+Create `frontend/src/components/DataTable.tsx` (or SCSS-only via `_tables.scss` which already exists) and migrate inline table styles from Risk.tsx, Sales.tsx, and Draws.tsx to use shared classes.
+
+### Step 5.3 — Add loading, empty, and error states per workflow
+
+Audit each page for missing states:
+- **Sales page:** "No open draw" → prompt to open a draw; "No agents" → prompt to add an agent
+- **Risk page:** "No open draw" → show empty guidance; degraded telemetry → warning banner
+- **Report page:** "No settled draws" → prompt to settle a draw
+- **Partners page:** "No agents" → empty state with CTA
+
+### Step 5.4 — Add confirmation dialogs for destructive actions
+
+**Files:** `frontend/src/pages/Draws.tsx`, `frontend/src/pages/Partners.tsx`
+
+- Draw deletion: confirm dialog showing draw name and warning if draw has sales
+- Agent/dealer deletion: confirm dialog
+- Blacklist/winning ticket deletion: confirm dialog
+
+Use a simple modal or `window.confirm()` as a first pass.
+
+### Step 5.5 — Disable impossible actions by draw status
+
+**File:** `frontend/src/pages/Sales.tsx`
+**File:** `frontend/src/pages/Risk.tsx`
+
+- If draw status is `CLOSED` or `SETTLED`, disable "Record Sale" button
+- If draw status is `SETTLED`, disable offload actions
+- Show a status badge explaining why actions are disabled
+
+---
+
+## Phase 6 — UI/UX Polish (P3)
+
+**Goal:** Standardize terminology, move inline styles to SCSS, improve accessibility.
+
+### Step 6.1 — Standardize labels and terminology
+
+Audit all user-facing labels across pages and update:
+- "Open Date" → "Draw Name"
+- "Cutoff Time" → remove (backend manages timestamps automatically)
+- "Note" → "Notes" (where backend uses plural)
+- "Commission" → "Commission Rate" (to reflect it's a percentage)
+- Blacklist type labels: keep "HALF" / "BLOCK" as display values
+- Winning type labels: "JACKPOT" / "MINOR" (uppercase for consistency)
+
+### Step 6.2 — Move remaining inline styles to SCSS
+
+**Files:** `frontend/src/pages/Risk.tsx`, `frontend/src/pages/Sales.tsx`, `frontend/src/pages/Draws.tsx`
+
+- Audit each page for inline `style={{...}}` objects
+- Move repeated patterns into existing SCSS partials (`_tables.scss`, `_data-display.scss`, page-specific partials)
+- Replace inline styles with className references
+- Exception: truly dynamic styles (computed widths, conditional colors) may stay inline
+
+### Step 6.3 — Accessibility pass
+
+- Icon-only buttons: add `aria-label` attributes
+- Tab buttons: ensure `aria-selected` reflects active state
+- Error messages: add `role="alert"` and `aria-live="polite"` regions
+- Ticket tables: add proper `<thead>`, `<th scope="col">`, `<th scope="row">`
+- Color contrast: verify WCAG AA in both dark and light themes
 
 ---
 
 ## Implementation Order
 
 ```
-Phase 1 (Tokens) ──► Phase 2 (Typography) ──► Phase 3 (Cards) ──► Phase 4 (Inputs)
-                                                                        │
-                                                                        ▼
-                                                                 Phase 5 (Navbar)
-                                                                        │
-                                                                        ▼
-                                                                 Phase 6 (Tables)
-                                                                        │
-                                                                        ▼
-                                                                 Phase 7 (Background)
-                                                                        │
-                                                                        ▼
-                                                                 Phase 8 (Animations)
-                                                                        │
-                                                                        ▼
-                                                                 Phase 9 (TSX Cleanup)
-                                                                        │
-                                                                        ▼
-                                                                 Phase 10 (Report)
-                                                                        │
-                                                                        ▼
-                                                                 Phase 11 (Verify)
+Phase 1 (Contracts) ──► Phase 2 (Settlement) ──► Phase 3 (Hardening) ──► Phase 4 (Calc Tests)
+                                                                              │
+                                                                              ▼
+                                                                       Phase 5 (Frontend Quality)
+                                                                              │
+                                                                              ▼
+                                                                       Phase 6 (UI/UX Polish)
 ```
 
-Phase 1 is the foundation — all subsequent phases depend on the new token values.
-Phases 2-8 are independent of each other and can be done in any order after Phase 1.
-Phases 9-10 depend on earlier phases establishing the token system.
-Phase 11 is the final QA pass.
+- **Phase 1 is the critical path** — all other work depends on a unified contract
+- **Phase 2** is independent of Phase 1 (backend-only) and can run in parallel
+- **Phase 3** depends on Phase 1 for the frontend portions; backend portions are independent
+- **Phase 4** requires Phase 1 and Phase 2 to be complete
+- **Phase 5** requires Phase 1 (lint fixes are in the updated files)
+- **Phase 6** is pure polish, can be done anytime after Phase 1
 
 ---
 
 ## Files That Must NOT Change
 
+- `TestingDatabase/testingdatabase.sql` — Authoritative source of truth
+- `TestingDatabase/CalculationWorkflow.md` — Authoritative formula spec
+- `backend/database/models.py` — Already correct (the backend rebuild target)
+- `backend/database/connection.py` — Already correct (triggers, init flow)
+- `backend/repositories/*` — Already correct (match ORM)
+- `backend/services/draw_service.py` — Already correct (except delete guard in Phase 3)
+- `backend/services/sales_service.py` — Already correct (except zero-sale decision in Phase 3)
+- `frontend/src/styles/abstracts/_tokens.scss` — Design system tokens are locked
 - `frontend/src/styles/components/_grid.scss` — Grid layout is locked
-- `frontend/src/styles/abstracts/_functions.scss` — Utility functions are fine
-- The navbar trapezoid center piece structure (`.navbar__trapezoid`, its clip-path, width, positioning)
-- The navbar left/right link section structure (`.navbar__left`, `.navbar__right`)
 - `frontend/src/main.tsx` — Router structure
-- `frontend/src/App.tsx` — Layout shell, grid overlay generation
-- Any `.tsx` component structural JSX — only inline style values change
+- `frontend/src/App.tsx` — Layout shell
 
 ---
 
-## Key Design Principles
+## Verification Checklist
 
-1. **Depth over flatness** — Multi-layer shadows, inner glows, glass effects create spatial depth
-2. **Glow with purpose** — Neon effects indicate state (active, warning, error), not decoration
-3. **Sharp precision** — No rounded corners, tight tracking, monospace data — this is a terminal, not a consumer app
-4. **Breathing interfaces** — Subtle animations convey system aliveness without distraction
-5. **Token-first** — Every visual value traces back to `_tokens.scss`; no magic numbers
-6. **Dark-first, light-safe** — Dark mode is the hero; light mode is a functional fallback
+Before marking any phase complete:
+
+- [ ] `pytest tests/ -v` — all tests pass
+- [ ] `cd frontend && npx tsc --noEmit` — zero type errors
+- [ ] `cd frontend && npm run lint` — zero lint errors
+- [ ] `cd frontend && npm run build` — production build succeeds
+- [ ] Manual smoke test against mock: create draw, record sales, add blacklist/winning tickets, view report
+- [ ] Grep for stale field names: zero results for `openDate`, `cutoffTime`, `.commission` (on API objects), `.type` (on ticket objects), `'Jackpot'`, `'Minor'`
+
+---
+
+## Previous Completed Tasks
+
+### Backend Rebuild from TestingDatabase (2026-05-31) — Complete
+
+Rebuilt entire backend to match the TestingDatabase schema — the single source of truth for the lottery domain model. 22 files changed, all 24 tests pass.
+
+### Frontend Sci-Fi Redesign: "Nexus Terminal" (2026-05-31) — Complete
+
+Phase 12 UI Professional Upgrade applied. 4 commits, 16 files touched. SCSS compile, TypeScript, and Vite build all pass.

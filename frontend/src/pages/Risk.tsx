@@ -128,6 +128,7 @@ export default function Risk() {
 
   // ---- Init ----
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchDraw()
     fetchDealers()
     fetchConfig()
@@ -135,6 +136,7 @@ export default function Risk() {
 
   useEffect(() => {
     if (openDraw) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       fetchBreakdown(openDraw.id)
       fetchHistory(openDraw.id)
     }
@@ -142,6 +144,7 @@ export default function Risk() {
 
   // Reset selection when tab or breakdown changes
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSelectedTickets(new Map())
     setExportError(null)
   }, [activeTab, breakdown])
@@ -227,7 +230,7 @@ export default function Risk() {
       openDraw.id,
       selectedDealerId,
       JSON.stringify(entries),
-      pageNumber,
+      String(pageNumber),
       offloadNote || undefined,
     )
 
@@ -387,7 +390,7 @@ export default function Risk() {
           <span>Risk Management</span>
           {openDraw && (
             <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-secondary)' }}>
-              Draw #{openDraw.id} &mdash; {openDraw.openDate}
+              Draw #{openDraw.id} &mdash; {openDraw.drawName}
             </span>
           )}
         </div>
@@ -606,7 +609,7 @@ export default function Risk() {
                                 {r.createdAt ? new Date(r.createdAt).toLocaleDateString() : '-'}
                               </td>
                               <td style={{ ...tdStyle, fontSize: 'var(--text-xs)', color: 'var(--color-text-secondary)' }}>
-                                {r.note || '-'}
+                                {r.notes || '-'}
                               </td>
                             </tr>
                           ))}
@@ -670,7 +673,7 @@ export default function Risk() {
         <KalawTemplate
           ref={templateRef}
           entries={templateData.entries}
-          drawDate={openDraw.openDate}
+          drawDate={openDraw.drawName}
           drawId={openDraw.id}
           pageNumber={templateData.pageNumber}
           masterDealerName={dealers.find((d) => d.id === selectedDealerId)?.name ?? selectedDealerId}

@@ -24,11 +24,13 @@ export interface RiskTelemetry {
 
 export interface OpenDrawInfo {
   id: number
-  openDate: string
-  cutoffTime: string
+  drawName: string
   status: string
   houseHoldingAmount: number
-  note: string | null
+  openedAt: string | null
+  closedAt: string | null
+  settledAt: string | null
+  notes: string | null
 }
 
 export interface DrawResult {
@@ -49,7 +51,6 @@ export interface SaleRecord {
   batchId: number
   ticket: string
   amount: number
-  note: string | null
 }
 
 export interface BatchInfo {
@@ -70,14 +71,16 @@ export type ApiResult<T> = T | ApiError
 
 export interface BlacklistTicketResult {
   id: number
+  drawId: number
   ticket: string
-  type: string
+  restrictionType: string
 }
 
 export interface WinningTicketResult {
   id: number
+  drawId: number
   ticket: string
-  type: string
+  prizeType: string
 }
 
 export interface DeleteResult {
@@ -115,21 +118,21 @@ export interface OffloadRecord {
   id: number
   drawId: number
   masterDealerId: string
-  pageNo: number
+  pageNo: string
   ticket: string
   amount: number
-  note: string | null
+  notes: string | null
   createdAt: string
 }
 
 export interface OffloadResult {
-  records: Array<{ id: number; ticket: string; amount: number; pageNo: number; masterDealerId: string }>
+  records: Array<{ id: number; ticket: string; amount: number; pageNo: string; masterDealerId: string }>
   count: number
 }
 
 export interface WinningTicketDetail {
   ticket: string
-  type: 'Jackpot' | 'Minor'
+  type: string
   amount: number
   payout: number
   isHalfBlacklisted: boolean

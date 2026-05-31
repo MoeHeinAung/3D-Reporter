@@ -8,56 +8,58 @@
 export interface Agent {
   id: string
   name: string
-  commission: number
+  commissionRate: number
   jpFactor: number
   spFactor: number
-  note: string | null
+  active: boolean
 }
 
 export interface MasterDealer {
   id: string
   name: string
-  commission: number
+  commissionRate: number
   jpFactor: number
   spFactor: number
-  note: string | null
+  active: boolean
 }
 
 export interface Draw {
   id: number
-  openDate: string
-  cutoffTime: string
+  drawName: string
   status: 'OPEN' | 'CLOSED' | 'SETTLED'
   houseHoldingAmount: number
-  note: string | null
+  openedAt: string | null
+  closedAt: string | null
+  settledAt: string | null
+  notes: string | null
 }
 
 export interface Batch {
   id: number
   drawId: number
   agentId: string
+  batchNo: string
   totalAmount: number
-  note: string | null
+  ticketCount: number
+  closedAt: string | null
+  remarks: string | null
 }
 
 export interface Sale {
   id: number
-  drawId: number
-  agentId: string
   batchId: number
   ticket: string
   amount: number
-  note: string | null
 }
 
 export interface Offloaded {
   id: number
   drawId: number
   masterDealerId: string
-  pageNo: number
+  pageNo: string
   ticket: string
   amount: number
-  note: string | null
+  notes: string | null
   createdAt: string
 }
 
@@ -65,12 +67,12 @@ export interface BlacklistTicket {
   id: number
   drawId: number
   ticket: string
-  type: 'HALF' | 'BLOCK'
+  restrictionType: 'HALF' | 'BLOCK'
 }
 
 export interface WinningTicket {
   id: number
   drawId: number
   ticket: string
-  type: 'Jackpot' | 'Minor'
+  prizeType: 'JACKPOT' | 'MINOR'
 }
